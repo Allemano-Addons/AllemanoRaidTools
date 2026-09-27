@@ -59,6 +59,14 @@ function NoteWindow.Refresh()
     layout()
 end
 
+-- Background opacity (settings.noteAlpha, 0 = fully see-through). The border and title
+-- line fade with it; the text always stays readable.
+local function applyAlpha()
+    local a = SRT.db.settings.noteAlpha or 0.85
+    frame.bg:SetAlpha(a)
+    for _, line in ipairs(frame.lines) do line:SetAlpha(a) end
+end
+
 local function applyLock()
     local locked = saved().locked
     frame.grip:SetShown(not locked)
@@ -103,16 +111,17 @@ local function build()
     else
         frame:SetPoint("RIGHT", UIParent, "RIGHT", -60, 60)
     end
-    frame.bg = W.Fill(frame, "window", 0.85)
+    frame.bg = W.Fill(frame, "window", 1)
     frame.bg:SetAllPoints()
-    W.Border(frame, "line")
+    frame.lines = {}
+    for _, side in pairs(W.Border(frame, "line")) do frame.lines[#frame.lines + 1] = side end
 
     -- Title bar: drag to move (unless locked), lock and close.
     local bar = CreateFrame("Frame", nil, frame)
     bar:SetPoint("TOPLEFT")
     bar:SetPoint("TOPRIGHT")
     bar:SetHeight(TITLE_H)
-    W.Line(bar, "bottom", "line")
+    frame.lines[#frame.lines + 1] = W.Line(bar, "bottom", "line")
     bar:EnableMouse(true)
     bar:RegisterForDrag("LeftButton")
     bar:SetScript("OnDragStart", function() if not saved().locked then frame:StartMoving() end end)
@@ -184,6 +193,7 @@ local function build()
     frame.grip = grip
     frame:SetScript("OnSizeChanged", function() SRT:Call("note layout", layout) end)
     applyLock()
+    applyAlpha()
     frame:Hide()
 end
 
@@ -213,6 +223,7 @@ function NoteWindow.IsShown() return frame ~= nil and frame:IsShown() end
 SRT.Notes.OnChange(function() if frame and frame:IsShown() then NoteWindow.Refresh() end end)
 SRT:OnSettingChanged(function(key)
     if key == "notePersonal" or key == "accent" or key == "useClassColor" then NoteWindow.Refresh() end
+    if key == "noteAlpha" and frame then applyAlpha() end
 end)
 SRT:OnReady(function() if saved().shown then NoteWindow.Show() end end)
 

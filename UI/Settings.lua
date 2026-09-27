@@ -107,6 +107,12 @@ Main.RegisterPage("appearance", function(page)
     local reset = W.Button(page, "Reset", nil, function() Main.ResetPosition() end, 26)
     p:Row("Window position", "Moves the window back to the center at the default size.", reset)
 
+    p:Heading("Note window")
+    local noteAlpha = W.Slider(page, 0, 100, 5, 200, function(v) return v .. "%" end,
+        function(v) set("noteAlpha", v / 100) end)
+    noteAlpha.refresh = function() noteAlpha:Set(floor((s.noteAlpha or 0.85) * 100 + 0.5)) end
+    p:Row("Background", "0% = see-through, only the text shows.", noteAlpha, 8)
+
     return function() p:Refresh() end
 end)
 

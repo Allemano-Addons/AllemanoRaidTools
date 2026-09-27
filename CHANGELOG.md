@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+- Note window background opacity: Appearance > Note window (0% = see-through, only the
+  text shows; the border fades with it).
+- Your own name in notes now uses your class color like everyone else, not the accent.
+
 ## 0.2.0
 - Notes page: saved raid notes (list + editor, saved while typing), raid icon buttons,
   "Insert name" from the group, formatting help. "Send to raid" (leader/assistant), "Post in

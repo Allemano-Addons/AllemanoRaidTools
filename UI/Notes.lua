@@ -12,8 +12,7 @@ local HELP = {
     "{rt1} .. {rt8} or {skull}, {cross}, {star}... raid icons",
     "{spell:12345} spell icon",
     "{p:Name, Other Name} ... {/p} only these players see it",
-    "Names of group members get their class color,",
-    "your own name the accent color.",
+    "Names of group members get their class color.",
 }
 
 -- Multi-line edit box in a scrolling, bordered field. onChange(text) on user edits.

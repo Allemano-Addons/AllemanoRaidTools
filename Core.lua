@@ -99,6 +99,7 @@ local DEFAULT_SETTINGS = {
     announceBreak = true,  -- post breaks in raid chat (for raiders without SRT)
     noteAutoShow = true,   -- open the note window when a new raid note arrives
     notePersonal = true,   -- show the personal note under the raid note
+    noteAlpha = 0.85,      -- note window background opacity (0 = see-through)
 }
 
 local function fillDefaults(dst, src)

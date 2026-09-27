@@ -6,7 +6,7 @@
 --   {rt1}..{rt8} or {star} {circle} {diamond} {triangle} {moon} {square} {cross} {skull}
 --   {spell:12345}                  spell icon
 --   {p:Name, Other Name}...{/p}    only these players see the text
--- Names of group members are shown in their class color, your own name in the accent.
+-- Names of group members (yours too) are shown in their class color.
 local _, SRT = ...
 
 local Notes = {}
@@ -134,21 +134,17 @@ function Notes.Render(text)
         held[#held + 1] = s
         return "\001" .. #held .. "\002"
     end
-    local meFull, meFirst = SRT.Compat.PlayerName(), UnitName("player")
-    local accent = hexColor(SRT.Theme:Accent())
+    -- Group members (the player included, also solo) in their class color.
     local full, first = {}, {}
     for _, m in ipairs(SRT.Compat.GroupMembers()) do
         local _, class = UnitClass(m.unit)
         local r, g, b = SRT.Theme.ClassColor(class)
-        local color = r and hexColor(r, g, b)
-        if SRT.Compat.NameKey(m.name) == SRT.Compat.NameKey(meFull) then color = accent end
-        if color then
+        if r then
+            local color = hexColor(r, g, b)
             full[#full + 1] = { m.name, color }
             first[strlower(m.name:match("^(%S+)") or m.name)] = color
         end
     end
-    first[strlower(meFirst or "")] = accent
-    if not full[1] then full[1] = { meFull, accent } end
     for _, f in ipairs(full) do
         if f[1]:find(" ", 1, true) then
             text = replacePlain(text, f[1], function(s) return hold("|c" .. f[2] .. s .. "|r") end)
