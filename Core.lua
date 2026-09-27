@@ -137,6 +137,9 @@ local function initDB()
     db.notes.nextId = db.notes.nextId or 1
     db.personal = db.personal or {} -- [guid] = personal note text
     db.noteWindow = db.noteWindow or {}
+    db.invite = db.invite or {}   -- invite tools (see Invites.lua)
+    fillDefaults(db.invite, { ranks = {}, keyword = "inv", keywordOn = false, guildOnly = true, autoConvert = true, assists = "" })
+    db.roster = db.roster or { text = "" } -- pasted OXM roster
     -- db.active = the raid note shown in the note window, db.lastSent = who confirmed ours
     -- Errors from before the saved data was loaded are kept too.
     db.errors = db.errors or {}

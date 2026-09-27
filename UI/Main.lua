@@ -29,7 +29,6 @@ local COMING = {
     reminders = "Personal reminders that pop up at the right moment (\"Soulstone on pull\", \"Bring fire resistance\").",
     raidcheck = "Ready check with consumables: flasks, food, buffs and durability for the whole raid, with a list of who is missing what.",
     buffs = "Assign buffs (Fortitude, Mark of the Wild, Intellect...) per class and group, and post the assignments.",
-    invites = "Invite by guild rank or keyword, convert to raid, give assist, and sort groups from the OXM roster export.",
     summons = "See who is not in the raid's zone and post the summon list in raid chat (/srt summon).",
     marks = "Menu for raid target icons and world markers.",
     timers = "Pull and break timers already work from the header buttons, /srt pull and /srt break. This page will add custom timers.",

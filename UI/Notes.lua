@@ -15,53 +15,6 @@ local HELP = {
     "Names of group members get their class color.",
 }
 
--- Multi-line edit box in a scrolling, bordered field. onChange(text) on user edits.
-local function multiEdit(parent, onChange)
-    local box = CreateFrame("Frame", nil, parent)
-    box.bg = W.Fill(box, "field", 1)
-    box.bg:SetAllPoints()
-    box.border = W.Border(box, "line")
-    local scroll = CreateFrame("ScrollFrame", nil, box)
-    scroll:SetPoint("TOPLEFT", 10, -8)
-    scroll:SetPoint("BOTTOMRIGHT", -10, 8)
-    local edit = CreateFrame("EditBox", nil, scroll)
-    edit:SetMultiLine(true)
-    edit:SetAutoFocus(false)
-    edit:SetMaxLetters(Notes.MAX_LETTERS)
-    Theme:SetFont(edit)
-    edit:SetTextColor(Theme:Color("text"))
-    edit:SetWidth(200)
-    scroll:SetScrollChild(edit)
-    scroll:SetScript("OnSizeChanged", function(self, w) edit:SetWidth(max(50, w or self:GetWidth())) end)
-    edit:SetScript("OnCursorChanged", function(_, _, y, _, h)
-        local top, height = scroll:GetVerticalScroll(), scroll:GetHeight()
-        y = -y
-        if y < top then
-            scroll:SetVerticalScroll(y)
-        elseif y + h > top + height then
-            scroll:SetVerticalScroll(y + h - height)
-        end
-    end)
-    edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    edit:SetScript("OnTextChanged", function(self, user)
-        if user and onChange then onChange(self:GetText()) end
-    end)
-    local function setBorder(r, g, b)
-        for _, side in pairs(box.border) do side:SetColorTexture(r, g, b, 1) end
-    end
-    edit:SetScript("OnEditFocusGained", function() setBorder(Theme:Accent()) end)
-    edit:SetScript("OnEditFocusLost", function() setBorder(Theme:Color("line")) end)
-    box:EnableMouse(true)
-    box:SetScript("OnMouseDown", function() edit:SetFocus() end)
-    scroll:EnableMouseWheel(true)
-    scroll:SetScript("OnMouseWheel", function(self, delta)
-        local maxScroll = max(0, edit:GetHeight() - self:GetHeight())
-        self:SetVerticalScroll(min(maxScroll, max(0, self:GetVerticalScroll() - delta * 30)))
-    end)
-    box.edit = edit
-    return box
-end
-
 -- Small square button showing a raid icon.
 local function iconButton(parent, i, onClick)
     local b = CreateFrame("Button", nil, parent)
@@ -170,7 +123,7 @@ Main.RegisterPage("notes", function(page)
     toolbar:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", 0, -8)
     toolbar:SetHeight(26)
 
-    local body = multiEdit(editor, function(text)
+    local body = W.MultiEdit(editor, function(text)
         if current then Notes.Save(current.id, title:GetText(), text) end
     end)
     body:SetPoint("TOPLEFT", toolbar, "BOTTOMLEFT", 0, -8)
@@ -241,7 +194,7 @@ Main.RegisterPage("notes", function(page)
     local pLabel = W.Text(personalView, -1, "textDim")
     pLabel:SetPoint("RIGHT", pToggle, "LEFT", -8, 0)
     pLabel:SetText("Show in note window")
-    local personal = multiEdit(personalView, function(text)
+    local personal = W.MultiEdit(personalView, function(text)
         Notes.SetPersonal(text)
         SRT.NoteWindow.Refresh()
     end)

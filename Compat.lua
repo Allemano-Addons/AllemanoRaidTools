@@ -135,6 +135,62 @@ function Compat.DoCountdown(seconds)
     return (pcall(fn, seconds))
 end
 
+-- Group management (C_PartyInfo on Forever; the old globals are missing there). Each
+-- returns false when the client lacks the call or refuses it.
+local function call(ns, name, ...)
+    local fn = (C_PartyInfo and C_PartyInfo[name]) or (ns and _G[name])
+    if not fn then return false end
+    return (pcall(fn, ...))
+end
+
+function Compat.InviteUnit(name) return call(true, "InviteUnit", name) end
+function Compat.ConvertToRaid() return call(true, "ConvertToRaid") end
+function Compat.PromoteToAssistant(unit) return call(true, "PromoteToAssistant", unit) end
+
+function Compat.SetRaidSubgroup(index, group)
+    if not SetRaidSubgroup then return false end
+    return (pcall(SetRaidSubgroup, index, group))
+end
+
+function Compat.SwapRaidSubgroup(a, b)
+    if not SwapRaidSubgroup then return false end
+    return (pcall(SwapRaidSubgroup, a, b))
+end
+
+-- Raid members with their raid index and subgroup: { { index, unit, name, group, online } }.
+function Compat.RaidRoster()
+    local out = {}
+    if not IsInRaid() then return out end
+    for i = 1, GetNumGroupMembers() do
+        local unit = "raid" .. i
+        local _, _, group, _, _, _, _, online = GetRaidRosterInfo(i)
+        local name = Compat.UnitFullName(unit)
+        if name then
+            out[#out + 1] = { index = i, unit = unit, name = name, group = group or 1, online = online and true or false }
+        end
+    end
+    return out
+end
+
+-- Guild members: { { name, rank, rankIndex, level, online, classFile } }. Ask the server
+-- for a fresh list with Compat.RequestGuildRoster (GUILD_ROSTER_UPDATE answers).
+function Compat.GuildRoster()
+    local out = {}
+    if not IsInGuild() then return out end
+    for i = 1, GetNumGuildMembers() do
+        local name, rank, rankIndex, level, _, _, _, _, online, _, classFile = GetGuildRosterInfo(i)
+        if name then
+            out[#out + 1] = { name = name, rank = rank, rankIndex = rankIndex, level = level, online = online and true or false, classFile = classFile }
+        end
+    end
+    return out
+end
+
+function Compat.RequestGuildRoster()
+    local fn = (C_GuildInfo and C_GuildInfo.GuildRoster) or GuildRoster
+    if fn then pcall(fn) end
+end
+
 function Compat.GuildName()
     return IsInGuild() and GetGuildInfo("player") or nil
 end

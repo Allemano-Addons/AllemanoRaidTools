@@ -99,10 +99,26 @@ C_RestrictedActions = { IsAddOnRestrictionActive = function() return true end, S
 C_Secrets = { ShouldAurasBeSecret = function() return SECRET end }
 local countdowns, readyChecks, chatLines = {}, 0, {}
 local countdownWorks = true
+local invited, converts, promotedUnits = {}, 0, {}
 C_PartyInfo = {
     DoCountdown = function(s) if not countdownWorks then error("blocked") end countdowns[#countdowns + 1] = s end,
     DoReadyCheck = function() readyChecks = readyChecks + 1 end,
+    InviteUnit = function(name) invited[#invited + 1] = name end,
+    ConvertToRaid = function() converts = converts + 1 end,
+    PromoteToAssistant = function(unit) promotedUnits[#promotedUnits + 1] = unit end,
 }
+-- Guild: Mårten twice (first names are not unique on Forever), Nylo offline.
+local GUILD = {
+    { "Allemano Moo", "Guild Master", 0, true }, { "Kogosh Boll", "Officer", 1, true },
+    { "Aldera Stone", "Raider", 2, true }, { "Gretha Vale", "Raider", 2, true }, { "Nylo Ash", "Raider", 2, false },
+    { "Mårten Ek", "Member", 3, true }, { "Mårten Al", "Member", 3, true },
+}
+GetNumGuildMembers = function() return #GUILD end
+GetGuildRosterInfo = function(i)
+    local g = GUILD[i]
+    if g then return g[1], g[2], g[3], 20, "Druid", "Barrens", "", "", g[4], 0, "DRUID" end
+end
+C_GuildInfo = { GuildRoster = function() end }
 UIParent = mock("Frame")
 local chat = {}
 DEFAULT_CHAT_FRAME = { AddMessage = function(_, m) chat[#chat + 1] = m; print("[chat] " .. m) end }
@@ -136,10 +152,26 @@ UnitName = function(unit)
     return nil
 end
 IsInRaid = function() return inRaid end
-IsInGroup = function(cat) return inRaid and cat ~= 2 end
-GetNumGroupMembers = function() return inRaid and #ROSTER or 0 end
+local partySize = 0 -- a party (not raid) of this many when inRaid is false
+IsInGroup = function(cat) return (inRaid or partySize > 1) and cat ~= 2 end
+GetNumGroupMembers = function() return inRaid and #ROSTER or partySize end
 GetNumSubgroupMembers = function() return 0 end
-GetRaidRosterInfo = function(i) return ROSTER[i] and ROSTER[i][1] end
+GetRaidRosterInfo = function(i)
+    local r = ROSTER[i]
+    if r then return r[1], 0, r.group or 1, 20, "Druid", "DRUID", "Barrens", true end
+end
+local function groupCount(g)
+    local n = 0
+    for _, r in ipairs(ROSTER) do if (r.group or 1) == g then n = n + 1 end end
+    return n
+end
+SetRaidSubgroup = function(i, g)
+    assert(groupCount(g) < 5, "SetRaidSubgroup into a full group")
+    ROSTER[i].group = g
+end
+SwapRaidSubgroup = function(a, b)
+    ROSTER[a].group, ROSTER[b].group = ROSTER[b].group or 1, ROSTER[a].group or 1
+end
 UnitIsConnected = function() return true end
 local leaderUnit = "player"
 local assistants = {}
@@ -571,6 +603,138 @@ step("personal note, opacity and note window toggle", function()
     click("Personal note")
     click("Raid notes")
     click("Delete")
+end)
+
+-- ---------------------------------------------------------------------------
+-- Invites & groups
+-- ---------------------------------------------------------------------------
+
+local Invites = SRT.Invites
+local OXM = [[
+Aldera
+Gavztahx
+Helixspal
+Gretha
+Erikdsham
+Nylo
+Sterlings
+Blowfish
+Tyrís
+Vandiia
+
+Lurre
+Swiftmendarn
+Zalthenia
+Bluelazer/Tryan
+Mercifultoad
+Wallengrèn
+Kaupi
+Allemano
+Crabthief
+Helgonet
+
+Mårten
+Hajteck
+Pjexie
+]]
+step("roster: five per group, blank lines ignored, alternatives", function()
+    local slots = Invites.ParseRoster(OXM)
+    assert(#slots == 23, "slots: " .. #slots)
+    assert(slots[1].group == 1 and slots[5].group == 1 and slots[6].group == 2 and slots[11].group == 3, "groups wrong")
+    assert(slots[23].group == 5 and slots[23].names[1] == "Pjexie", "last slot wrong")
+    assert(#slots[14].names == 2 and slots[14].names[2] == "Tryan", "alternatives wrong")
+    assert(Invites.ParseRoster("a\r\nb\r\n")[2].names[1] == "b", "CRLF lines")
+end)
+step("roster matching: raid, guild, offline, ambiguous, unknown", function()
+    local slots = Invites.MatchRoster(Invites.ParseRoster("Kogosh\nWhissel Ljud\nAldera\nMårten\nNylo\nGhost\nNobody/Allemano"))
+    local st = {}
+    for i, s in ipairs(slots) do st[i] = s.state end
+    assert(table.concat(st, ",") == "raid,raid,guild,ambiguous,offline,unknown,raid", table.concat(st, ","))
+    assert(slots[3].guildName == "Aldera Stone", "guild name for invite")
+    assert(slots[7].member.name == "Nobody Here", "first alternative in raid should win")
+end)
+step("sorting moves: set into free group, swap into full group", function()
+    local members = {}
+    for i = 1, 5 do members[i] = { index = i, group = 1 } end
+    members[6] = { index = 6, group = 2 }
+    local kind, a, b = Invites.NextMove(members, { [1] = 1, [2] = 1, [3] = 1, [4] = 1, [6] = 1 })
+    assert(kind == "swap" and a == 6 and b == 5, "expected a swap with the unlisted player")
+    kind, a, b = Invites.NextMove(members, { [6] = 3 })
+    assert(kind == "set" and a == 6 and b == 3, "expected a set")
+    assert(Invites.NextMove(members, { [1] = 1, [6] = 2 }) == nil, "already sorted")
+end)
+step("sort the raid from the roster", function()
+    SRT.db.roster.text = "Kogosh\nWhissel\nNobody\nGhost\nGhost2\nAllemano"
+    for _, r in ipairs(ROSTER) do r.group = 1 end
+    Invites.Sort()
+    advance(5)
+    assert(ROSTER[1].group == 2 and ROSTER[2].group == 1 and ROSTER[3].group == 1 and ROSTER[4].group == 1, "not sorted")
+    assert(not Invites.IsSorting() and chatHas("Groups sorted"), "sorting did not finish")
+end)
+step("groups page renders the roster", function()
+    SRT.db.roster.text = OXM
+    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    click("Invites & groups")
+    click("Groups")
+    click("Invite")
+end)
+step("invite guild ranks (raid: everyone at once)", function()
+    wipe(invited)
+    SRT.db.invite.ranks[2] = true
+    SRT.Main.Refresh()
+    click("Invite online (2)")
+    advance(2)
+    assert(#invited == 2 and invited[1] == "Aldera Stone" and invited[2] == "Gretha Vale", "invited: " .. table.concat(invited, ","))
+    SRT.db.invite.ranks[2] = nil
+end)
+step("keyword whispers", function()
+    wipe(invited)
+    local s = SRT.db.invite
+    s.keywordOn, s.keyword, s.guildOnly = true, "inv", true
+    fire("CHAT_MSG_WHISPER", " INV ", "Mårten Ek")
+    fire("CHAT_MSG_WHISPER", "inv", "Stranger Danger")
+    fire("CHAT_MSG_WHISPER", "inv please", "Aldera Stone")
+    advance(2)
+    assert(#invited == 1 and invited[1] == "Mårten Ek", "guild-only keyword: " .. table.concat(invited, ","))
+    s.guildOnly = false
+    fire("CHAT_MSG_WHISPER", "inv", "Stranger Danger")
+    advance(2)
+    assert(invited[2] == "Stranger Danger", "keyword for anyone")
+    s.keywordOn = false
+    fire("CHAT_MSG_WHISPER", "inv", "Other Guy")
+    advance(2)
+    assert(#invited == 2, "keyword off still invites")
+end)
+step("party first: 4 invites, convert, then the rest", function()
+    advance(100) -- earlier unanswered invites stop holding party slots
+    wipe(invited)
+    local savedRoster = ROSTER
+    inRaid, partySize = false, 0
+    local names = {}
+    for i = 1, 7 do names[i] = "Player" .. i .. " X" end
+    Invites.Queue(names)
+    advance(3)
+    assert(#invited == 4, "a party only takes 4 invites, sent " .. #invited)
+    partySize = 2 -- someone accepted
+    fire("GROUP_ROSTER_UPDATE")
+    advance(2)
+    assert(converts >= 1, "did not convert to raid")
+    ROSTER = { { "Allemano", "Moo" }, { "Player1", "X" } }
+    inRaid, partySize = true, 0
+    fire("GROUP_ROSTER_UPDATE")
+    advance(3)
+    assert(#invited == 7 and Invites.Pending() == 0, "rest not invited: " .. #invited)
+    ROSTER = savedRoster
+    fire("GROUP_ROSTER_UPDATE")
+end)
+step("auto assist when they join", function()
+    wipe(promotedUnits)
+    SRT.db.invite.assists = "kogosh, Whissel Ljud, Somebody"
+    fire("GROUP_ROSTER_UPDATE")
+    table.sort(promotedUnits)
+    assert(table.concat(promotedUnits, ",") == "raid2,raid3", "promoted: " .. table.concat(promotedUnits, ","))
+    fire("GROUP_ROSTER_UPDATE")
+    assert(#promotedUnits == 2, "promoted twice")
 end)
 step("close window", function()
     SlashCmdList.SLAUGHTERRAIDTOOLS("")

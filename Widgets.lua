@@ -495,6 +495,53 @@ function W.Card(parent, title, linkLabel, onLink, dashed)
     return c
 end
 
+-- Multi-line edit box in a scrolling, bordered field. onChange(text) on user edits.
+function W.MultiEdit(parent, onChange, maxLetters)
+    local box = CreateFrame("Frame", nil, parent)
+    box.bg = W.Fill(box, "field", 1)
+    box.bg:SetAllPoints()
+    box.border = W.Border(box, "line")
+    local scroll = CreateFrame("ScrollFrame", nil, box)
+    scroll:SetPoint("TOPLEFT", 10, -8)
+    scroll:SetPoint("BOTTOMRIGHT", -10, 8)
+    local edit = CreateFrame("EditBox", nil, scroll)
+    edit:SetMultiLine(true)
+    edit:SetAutoFocus(false)
+    edit:SetMaxLetters(maxLetters or 5000)
+    Theme:SetFont(edit)
+    edit:SetTextColor(Theme:Color("text"))
+    edit:SetWidth(200)
+    scroll:SetScrollChild(edit)
+    scroll:SetScript("OnSizeChanged", function(self, w) edit:SetWidth(max(50, w or self:GetWidth())) end)
+    edit:SetScript("OnCursorChanged", function(_, _, y, _, h)
+        local top, height = scroll:GetVerticalScroll(), scroll:GetHeight()
+        y = -y
+        if y < top then
+            scroll:SetVerticalScroll(y)
+        elseif y + h > top + height then
+            scroll:SetVerticalScroll(y + h - height)
+        end
+    end)
+    edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    edit:SetScript("OnTextChanged", function(self, user)
+        if user and onChange then onChange(self:GetText()) end
+    end)
+    local function setBorder(r, g, b)
+        for _, side in pairs(box.border) do side:SetColorTexture(r, g, b, 1) end
+    end
+    edit:SetScript("OnEditFocusGained", function() setBorder(Theme:Accent()) end)
+    edit:SetScript("OnEditFocusLost", function() setBorder(Theme:Color("line")) end)
+    box:EnableMouse(true)
+    box:SetScript("OnMouseDown", function() edit:SetFocus() end)
+    scroll:EnableMouseWheel(true)
+    scroll:SetScript("OnMouseWheel", function(self, delta)
+        local maxScroll = max(0, edit:GetHeight() - self:GetHeight())
+        self:SetVerticalScroll(min(maxScroll, max(0, self:GetVerticalScroll() - delta * 30)))
+    end)
+    box.edit = edit
+    return box
+end
+
 -- Square color swatch (hex "RRGGBB") with a selection ring.
 function W.Swatch(parent, hex, onClick, tooltip)
     local r, g, b = Theme.Hex(hex)

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0
+- Invites & groups page, tab Invite:
+  - Guild ranks: tick ranks, "Invite online (N)" invites their online members.
+  - Keyword invite: players who whisper the keyword (default "inv") are invited, optionally
+    guild members only.
+  - Convert to raid automatically when the party is full; the invite queue fills the party
+    first (4 invites), converts once someone accepts, then invites the rest.
+  - Give assist to a list of names when they join (raid leader only).
+- Tab Groups: paste the OXM roster (names top to bottom, five per group, blank lines ignored,
+  "Name/Other" = either). Groups 1-8 show who is in their group, in the raid elsewhere, can be
+  invited from the guild, offline, has a first name shared by two players, or is not found;
+  plus raid members who are not on the roster. "Invite missing" and "Sort groups" (one move
+  at a time, stops in combat).
+- `/srt inv` (ranks) or `/srt inv Name`, `/srt sort`.
+
 ## 0.2.1
 - Note window background opacity: Appearance > Note window (0% = see-through, only the
   text shows; the border fades with it).
