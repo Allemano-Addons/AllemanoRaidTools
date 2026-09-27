@@ -97,6 +97,8 @@ local DEFAULT_SETTINGS = {
     bgAlpha = 0.97,
     scale = 1,
     announceBreak = true,  -- post breaks in raid chat (for raiders without SRT)
+    noteAutoShow = true,   -- open the note window when a new raid note arrives
+    notePersonal = true,   -- show the personal note under the raid note
 }
 
 local function fillDefaults(dst, src)
@@ -129,6 +131,12 @@ local function initDB()
     fillDefaults(db.settings, DEFAULT_SETTINGS)
     db.window = db.window or {}   -- main window position, last page
     db.timers = db.timers or {}   -- timer bar position, running timers (survive /reload)
+    db.notes = db.notes or {}     -- the leader's saved notes: list, selected, nextId
+    db.notes.list = db.notes.list or {}
+    db.notes.nextId = db.notes.nextId or 1
+    db.personal = db.personal or {} -- [guid] = personal note text
+    db.noteWindow = db.noteWindow or {}
+    -- db.active = the raid note shown in the note window, db.lastSent = who confirmed ours
     -- Errors from before the saved data was loaded are kept too.
     db.errors = db.errors or {}
     for _, e in ipairs(SRT.errors) do tinsert(db.errors, e) end

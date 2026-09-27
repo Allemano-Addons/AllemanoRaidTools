@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0
+- Notes page: saved raid notes (list + editor, saved while typing), raid icon buttons,
+  "Insert name" from the group, formatting help. "Send to raid" (leader/assistant), "Post in
+  raid chat" (skips private text), Delete. Solo, "Show to me" shows the note only to you.
+- Formatting: {rt1}..{rt8} / {skull}..., {spell:ID}, {p:Name, Name}...{/p} (only those players
+  see it). Group members are shown in class color, your own name in the accent.
+- Note window for everyone (`/srt note`): moves, resizes, locks, scrolls; stays open through
+  ESC; opens by itself when a new note arrives (can be turned off). Personal note per
+  character under the raid note.
+- Raiders confirm the note: the leader sees "N of M have it" and who is missing (offline, no
+  SRT) on Home. Resend and Post in raid chat on the Home card. Players who join later (or
+  /reload) ask for the note and get it from the leader.
+- Notes are only accepted from the raid leader or an assistant.
+- Header "Send note" sends the note selected under Notes.
+
 ## 0.1.1
 - The window can be resized from the bottom right corner (820x560 up to 1800x1200); the
   size is saved. "Reset" under Appearance also restores the default size.

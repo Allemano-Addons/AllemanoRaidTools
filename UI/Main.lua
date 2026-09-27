@@ -25,7 +25,6 @@ Main.NAV = {
 
 -- What each page will do, shown until it is built.
 local COMING = {
-    notes = "Write raid notes and send them to everyone with SRT. Raiders see the note in their own window; the leader sees who has it.",
     visualnote = "Draw positions on a map of the boss room and send the picture with the note.",
     reminders = "Personal reminders that pop up at the right moment (\"Soulstone on pull\", \"Bring fire resistance\").",
     raidcheck = "Ready check with consumables: flasks, food, buffs and durability for the whole raid, with a list of who is missing what.",
@@ -221,7 +220,10 @@ local function buildHeader()
     close:SetPoint("TOPRIGHT", -6, -6)
 
     -- Quick actions, right to left.
-    header.note = W.Button(header, "Send note", "accent", function() Main.Show("notes") end)
+    header.note = W.Button(header, "Send note", "accent", function()
+        local n = SRT.Notes.Selected()
+        if n then SRT.Notes.Send(n.id) else Main.Show("notes") end
+    end)
     header.note:SetPoint("RIGHT", -40, -2)
     header.breakBtn = W.Button(header, "Break 10 min", nil, function()
         if SRT.Timers.Remaining("break") then SRT.Timers.Break(0) else SRT.Timers.Break(10) end
@@ -243,7 +245,9 @@ local function refreshHeader()
     header.pull:SetDisabled(lead)
     header.breakBtn:SetDisabled(lead)
     header.breakBtn:SetLabel(SRT.Timers.Remaining("break") and "End break" or "Break 10 min")
-    header.note:SetDisabled(not pages.notes and "Notes arrive in the next version." or lead)
+    local selected = SRT.Notes.Selected()
+    header.note:SetDisabled(lead or (not selected and "No note yet: write one under Notes.") or nil)
+    header.note.tooltip = selected and ("Sends \"%s\" (the note selected under Notes)"):format(selected.title) or nil
     frame.footerText:SetText(("v%s%s"):format(tostring(SRT.version), SRT.Compat.GuildName() and (" \194\183 " .. SRT.Compat.GuildName()) or ""))
 end
 
@@ -423,3 +427,4 @@ SRT:RegisterEvent("GROUP_ROSTER_UPDATE", onGroup)
 SRT:RegisterEvent("PARTY_LEADER_CHANGED", onGroup)
 SRT:RegisterEvent("PLAYER_ENTERING_WORLD", onGroup)
 SRT:RegisterEvent("ZONE_CHANGED_NEW_AREA", function() Main.Refresh() end)
+SRT.Notes.OnChange(function() if frame and frame:IsShown() then refreshHeader() end end)

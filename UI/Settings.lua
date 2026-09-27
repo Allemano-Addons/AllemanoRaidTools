@@ -116,6 +116,10 @@ Main.RegisterPage("advanced", function(page)
     p:Heading("Raid chat")
     p:Toggle("Announce breaks", "Posts \"Break 10 min, back at 21:14\" for raiders without SRT.", "announceBreak")
 
+    p:Heading("Notes")
+    p:Toggle("Open on new note", "Shows the note window when the raid leader sends a note.", "noteAutoShow")
+    p:Toggle("Show personal note", "Your personal note under the raid note.", "notePersonal")
+
     p:Heading("Development")
     p:Toggle("Addon message debug", "Prints every SRT message sent and received in chat.", "debugComm")
     local probe = W.Button(page, "Run", nil, function() SlashCmdList.SLAUGHTERRAIDTOOLS("probe") end, 26)

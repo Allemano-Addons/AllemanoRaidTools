@@ -34,6 +34,7 @@ local function mock(kind)
         if k == "GetText" then return function(self) return self._text or "" end end
         if k == "GetFont" then return function() return "Fonts\\FRIZQT__.TTF", 12 end end
         if k == "SetAlpha" then return function(self, v) self._alpha = v end end
+        if k == "Insert" then return function(self, v) self._text = (self._text or "") .. v end end
         if k == "CreateTexture" or k == "CreateFontString" then return function() return mock(k) end end
         if GETTERS[k] ~= nil then local v = GETTERS[k]; return function() return v end end
         return function() end
@@ -441,6 +442,123 @@ step("resize grip saves the size, reset clears it", function()
     assert(SRT.db.window.w == 800 and SRT.db.window.h == 600, "size not saved")
     SRT.Main.ResetPosition()
     assert(SRT.db.window.w == nil, "reset kept the size")
+end)
+
+-- ---------------------------------------------------------------------------
+-- Notes
+-- ---------------------------------------------------------------------------
+
+local Notes = SRT.Notes
+step("note text survives escaping", function()
+    local s = "Line 1\nTabs\there ~ and ~n literally || pipes\n\nend~"
+    assert(Notes.unescape(Notes.escape(s)) == s, "round trip changed the text")
+    assert(not Notes.escape(s):find("[\n\t]"), "newline or tab left in the payload")
+end)
+step("rendering: icons, names, private blocks", function()
+    local out = Notes.Render("{rt1} {skull} Kogosh Boll tanks, Whissel heals\n{p:Whissel Ljud}secret{/p}{p:allemano}mine{/p} Allemano")
+    assert(out:find("UI%-RaidTargetingIcon_1") and out:find("UI%-RaidTargetingIcon_8"), "icons missing")
+    assert(out:find("|cff%x+Kogosh Boll|r"), "full name not colored as one")
+    assert(not out:find("|cff%x+Kogosh|r"), "first name colored inside the full name")
+    assert(out:find("|cff%x+Whissel|r"), "first name not colored")
+    assert(not out:find("secret") and out:find("mine"), "private blocks wrong")
+    assert(out:find("|cffc8332eAllemano|r") or out:find("|cffff7d0aAllemano|r"), "own name not in accent: " .. out)
+end)
+step("notes page: new note, edit, send solo shows it to me", function()
+    sent = {}
+    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    click("Notes")
+    click("New note")
+    local n = Notes.Selected()
+    assert(n and n.title == "Note 1", "no new note")
+    Notes.Save(n.id, "Onyxia", "{skull} Onyxia\nKogosh Boll tanks\n{p:Whissel Ljud}Whissel: dispel{/p}")
+    Notes.Changed()
+    inRaid = false
+    SRT.Main.Refresh()
+    click("Show to me")
+    inRaid = true
+    assert(Notes.Active() and Notes.Active().title == "Onyxia", "not shown locally")
+    assert(#sent == 0, "sent while solo")
+    assert(SRT.NoteWindow.IsShown(), "note window did not open")
+end)
+local lastHash
+step("send to raid: parts, confirmations, missing list", function()
+    advance(30)
+    SRT.Main.Refresh()
+    click("Send to raid")
+    assert(#sent >= 1 and sent[1].text:find("^1|NOTE|"), "no NOTE message")
+    lastHash = SRT.db.lastSent.hash
+    sent = {}
+    fire("CHAT_MSG_ADDON", "SRT", "1|NACK|3|1|1|" .. lastHash, "WHISPER", "Kogosh Boll")
+    fire("CHAT_MSG_ADDON", "SRT", "1|NACK|3|1|1|999", "WHISPER", "Whissel Ljud") -- other note
+    local s = Notes.Status()
+    assert(s.have == 2 and s.total == 4, ("have %d of %d"):format(s.have, s.total))
+    assert(#s.missing == 2, "missing list wrong")
+    for _, m in ipairs(s.missing) do
+        if m.name == "Nobody Here" then assert(m.noSRT, "Nobody should be marked no SRT") end
+        if m.name == "Whissel Ljud" then assert(not m.noSRT, "Whissel runs SRT") end
+    end
+    click("Home") -- the card shows the status
+end)
+step("late joiner asks, the sender answers by whisper", function()
+    advance(30)
+    fire("CHAT_MSG_ADDON", "SRT", "1|NREQ|4|1|1|", "RAID", "Whissel Ljud")
+    assert(#sent >= 1 and sent[1].channel == "WHISPER" and sent[1].target == "Whissel Ljud" and sent[1].text:find("|NOTE|"), "no answer")
+    sent = {}
+end)
+step("receiving: only from leader or assist, confirms by whisper", function()
+    advance(30)
+    local text = {}
+    for i = 1, 60 do text[i] = ("Line %d: {rt%d} Whissel moves ~ left"):format(i, i % 8 + 1) end
+    text = table.concat(text, "\n")
+    local payload = "4242\t" .. Notes.escape("Nefarian") .. "\t" .. Notes.escape(text)
+    -- Build the parts like a real sender would, then deliver them from Kogosh.
+    local realSent = sent
+    SRT.Comm.Send("NOTE", payload)
+    advance(20)
+    local parts = sent
+    sent = realSent
+    assert(#parts > 5, "long note should be several parts")
+    for _, m in ipairs(parts) do fire("CHAT_MSG_ADDON", "SRT", m.text, "RAID", "Kogosh Boll") end
+    assert(Notes.Active().title == "Onyxia", "a normal raider changed the note")
+    sent = {}
+    assistants.raid2 = true
+    for _, m in ipairs(parts) do fire("CHAT_MSG_ADDON", "SRT", m.text, "RAID", "Kogosh Boll") end
+    assistants.raid2 = nil
+    local a = Notes.Active()
+    assert(a.title == "Nefarian" and a.text == text and a.sender == "Kogosh Boll", "note not received intact")
+    advance(2)
+    assert(sent[1] and sent[1].text:find("|NACK|.*|4242$") and sent[1].target == "Kogosh Boll", "no confirmation")
+    sent = {}
+end)
+step("joining a group asks for the note", function()
+    inRaid = false
+    fire("GROUP_ROSTER_UPDATE")
+    inRaid = true
+    fire("GROUP_ROSTER_UPDATE")
+    advance(4)
+    assert(sent[1] and sent[1].text:find("|NREQ|"), "no request after joining")
+    sent = {}
+end)
+step("post in raid chat skips private text", function()
+    local before = #chatLines
+    Notes.PostToChat("{skull} Onyxia\n\n{p:Whissel Ljud}Whissel: dispel{/p}\nGo")
+    advance(2)
+    local got = {}
+    for i = before + 1, #chatLines do got[#got + 1] = chatLines[i].msg end
+    assert(#got == 2 and got[1] == "{skull} Onyxia" and got[2] == "Go", "chat lines: " .. table.concat(got, " / "))
+end)
+step("personal note and note window toggle", function()
+    Notes.SetPersonal("Bring fire resistance")
+    SRT.NoteWindow.Refresh()
+    SlashCmdList.SLAUGHTERRAIDTOOLS("note")
+    assert(not SRT.NoteWindow.IsShown(), "note window did not hide")
+    assert(not SRT.db.noteWindow.shown, "hidden state not saved")
+    SlashCmdList.SLAUGHTERRAIDTOOLS("note")
+    assert(SRT.NoteWindow.IsShown(), "note window did not show")
+    click("Notes")
+    click("Personal note")
+    click("Raid notes")
+    click("Delete")
 end)
 step("close window", function()
     SlashCmdList.SLAUGHTERRAIDTOOLS("")

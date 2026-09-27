@@ -94,6 +94,9 @@ end
 
 function Comm.QueueSize() return #queue end
 
+-- [nameKey] = GetTime() of the last SRT message from that player: who runs SRT.
+Comm.seen = {}
+
 function Comm.IsSelf(sender)
     return SRT.Compat.NameKey(sender) == SRT.Compat.NameKey(SRT.Compat.PlayerName())
 end
@@ -128,6 +131,7 @@ SRT:RegisterEvent("CHAT_MSG_ADDON", function(_, prefix, text, channel, sender, t
         return
     end
     if Comm.IsSelf(sender) then return end
+    Comm.seen[SRT.Compat.NameKey(sender)] = GetTime()
     part, total = tonumber(part), tonumber(total)
     if total == 1 then
         debug("got %s from %s", kind, tostring(sender))
@@ -162,6 +166,7 @@ local function checksum(s)
     for i = 1, #s do sum = (sum * 31 + s:byte(i)) % 65521 end
     return sum
 end
+Comm.Checksum = checksum
 
 Comm.Register("ECHO", function(sender, payload)
     local len, sum, body = payload:match("^(%d+):(%d+):(.*)$")
