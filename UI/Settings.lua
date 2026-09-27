@@ -105,7 +105,7 @@ Main.RegisterPage("appearance", function(page)
     scale.refresh = function() scale:Set(floor((s.scale or 1) * 100 + 0.5)) end
     p:Row("Window scale", nil, scale, 8)
     local reset = W.Button(page, "Reset", nil, function() Main.ResetPosition() end, 26)
-    p:Row("Window position", "Moves the window back to the center.", reset)
+    p:Row("Window position", "Moves the window back to the center at the default size.", reset)
 
     return function() p:Refresh() end
 end)

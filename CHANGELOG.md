@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+- The window can be resized from the bottom right corner (820x560 up to 1800x1200); the
+  size is saved. "Reset" under Appearance also restores the default size.
+- Sidebar section titles (Overview, Plan, Before pull...) use the accent color.
+
 ## 0.1.0
 - Main window (`/srt`): sidebar with every tool grouped Overview / Plan / Before pull /
   During / After / Settings. Tools that are not built yet say what they will do.

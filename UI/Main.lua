@@ -9,6 +9,7 @@ local Main = {}
 SRT.Main = Main
 
 local WIDTH, HEIGHT = 1000, 660
+local MIN_W, MIN_H, MAX_W, MAX_H = 820, 560, 1800, 1200
 local SIDEBAR_W, HEADER_H, FOOTER_H, LOGO_H = 210, 72, 30, 52
 local ITEM_H, HEADING_H = 26, 30
 
@@ -153,6 +154,7 @@ local function buildSidebar()
         local h = W.Text(list, -2, "textFaint")
         h:SetPoint("TOPLEFT", 18, -(y + 12))
         h:SetText(strupper(section[1]))
+        W.OnAccent(function(r, g, b) h:SetTextColor(r, g, b) end)
         y = y + HEADING_H
         for _, item in ipairs(section[2]) do
             local b = CreateFrame("Button", nil, list)
@@ -300,11 +302,55 @@ function Main.Refresh()
     if page and page.refresh then SRT:Call("page " .. current, page.refresh) end
 end
 
+-- Resize grip in the bottom right corner: three steps of small squares.
+local function buildGrip()
+    local grip = CreateFrame("Button", nil, frame)
+    grip:SetSize(16, 16)
+    grip:SetPoint("BOTTOMRIGHT", -2, 2)
+    grip:SetFrameLevel(frame:GetFrameLevel() + 20)
+    grip.dots = {}
+    for _, d in ipairs({ { 10, 2 }, { 6, 6 }, { 10, 6 }, { 2, 10 }, { 6, 10 }, { 10, 10 } }) do
+        local t = grip:CreateTexture(nil, "OVERLAY")
+        t:SetSize(2, 2)
+        t:SetPoint("TOPLEFT", d[1], -d[2])
+        grip.dots[#grip.dots + 1] = t
+    end
+    local function color(key)
+        local r, g, b = Theme:Color(key)
+        for _, t in ipairs(grip.dots) do t:SetColorTexture(r, g, b, 1) end
+    end
+    color("textFaint")
+    grip:SetScript("OnEnter", function(self)
+        color("text")
+        W.ShowTooltip(self, "Drag to resize")
+    end)
+    grip:SetScript("OnLeave", function()
+        color("textFaint")
+        W.HideTooltip()
+    end)
+    grip:SetScript("OnMouseDown", function(_, button)
+        if button == "LeftButton" then frame:StartSizing("BOTTOMRIGHT") end
+    end)
+    grip:SetScript("OnMouseUp", function()
+        frame:StopMovingOrSizing()
+        SRT.db.window.w, SRT.db.window.h = floor(frame:GetWidth() + 0.5), floor(frame:GetHeight() + 0.5)
+        savePosition() -- sizing re-anchors the frame
+    end)
+end
+
 local statusTicker
 local function build()
     frame = CreateFrame("Frame", "SlaughterRaidToolsFrame", UIParent)
     tinsert(UISpecialFrames, "SlaughterRaidToolsFrame") -- ESC closes it
-    frame:SetSize(WIDTH, HEIGHT)
+    local saved = SRT.db.window
+    frame:SetSize(min(MAX_W, max(MIN_W, saved.w or WIDTH)), min(MAX_H, max(MIN_H, saved.h or HEIGHT)))
+    frame:SetResizable(true)
+    if frame.SetResizeBounds then
+        frame:SetResizeBounds(MIN_W, MIN_H, MAX_W, MAX_H)
+    elseif frame.SetMinResize then
+        frame:SetMinResize(MIN_W, MIN_H)
+        frame:SetMaxResize(MAX_W, MAX_H)
+    end
     frame:SetFrameStrata("HIGH")
     frame:SetToplevel(true)
     frame:SetClampedToScreen(true)
@@ -324,6 +370,7 @@ local function build()
     content = CreateFrame("Frame", nil, frame)
     content:SetPoint("TOPLEFT", SIDEBAR_W, -HEADER_H)
     content:SetPoint("BOTTOMRIGHT")
+    buildGrip()
     applyLook()
     frame:SetScript("OnShow", function()
         refreshHeader()
@@ -355,8 +402,10 @@ function Main.Toggle(id)
 end
 
 function Main.ResetPosition()
-    SRT.db.window.point, SRT.db.window.rel, SRT.db.window.x, SRT.db.window.y = nil, nil, nil, nil
+    local w = SRT.db.window
+    w.point, w.rel, w.x, w.y, w.w, w.h = nil, nil, nil, nil, nil, nil
     if frame then
+        frame:SetSize(WIDTH, HEIGHT)
         frame:ClearAllPoints()
         frame:SetPoint("CENTER", 0, 40)
     end
