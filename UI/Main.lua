@@ -1,0 +1,376 @@
+-- Main window: sidebar with every tool (grouped by when it is used), a header with the
+-- raid status and the leader's quick actions, and the selected page below it.
+-- Pages register themselves with Main.RegisterPage; the rest show "coming soon".
+local _, SRT = ...
+
+local Theme, W = SRT.Theme, SRT.Widgets
+
+local Main = {}
+SRT.Main = Main
+
+local WIDTH, HEIGHT = 1000, 660
+local SIDEBAR_W, HEADER_H, FOOTER_H, LOGO_H = 210, 72, 30, 52
+local ITEM_H, HEADING_H = 26, 30
+
+-- Sidebar: { heading, { { id, label, badge }, ... } }
+Main.NAV = {
+    { "Overview",    { { "home", "Home" } } },
+    { "Plan",        { { "notes", "Notes" }, { "visualnote", "Visual note" }, { "reminders", "Reminders" } } },
+    { "Before pull", { { "raidcheck", "Raid check" }, { "buffs", "Buff assignments" }, { "invites", "Invites & groups" }, { "summons", "Summons" } } },
+    { "During",      { { "marks", "Marks" }, { "timers", "Timers" }, { "cooldowns", "Cooldowns", "PROBE" }, { "bres", "Battle res", "PROBE" } } },
+    { "After",       { { "pulllog", "Pull log" }, { "attendance", "Attendance" }, { "loot", "Loot" } } },
+    { "Settings",    { { "appearance", "Appearance" }, { "advanced", "Advanced" } } },
+}
+
+-- What each page will do, shown until it is built.
+local COMING = {
+    notes = "Write raid notes and send them to everyone with SRT. Raiders see the note in their own window; the leader sees who has it.",
+    visualnote = "Draw positions on a map of the boss room and send the picture with the note.",
+    reminders = "Personal reminders that pop up at the right moment (\"Soulstone on pull\", \"Bring fire resistance\").",
+    raidcheck = "Ready check with consumables: flasks, food, buffs and durability for the whole raid, with a list of who is missing what.",
+    buffs = "Assign buffs (Fortitude, Mark of the Wild, Intellect...) per class and group, and post the assignments.",
+    invites = "Invite by guild rank or keyword, convert to raid, give assist, and sort groups from the OXM roster export.",
+    summons = "See who is not in the raid's zone and post the summon list in raid chat (/srt summon).",
+    marks = "Menu for raid target icons and world markers.",
+    timers = "Pull and break timers already work from the header buttons, /srt pull and /srt break. This page will add custom timers.",
+    cooldowns = "Raid cooldowns per player. Depends on what WoW Forever lets addons see in combat: run /srt probe combat in a dungeon.",
+    bres = "Battle res tracking. Depends on the combat probe as well.",
+    pulllog = "Every boss pull tonight with duration and wipe/kill.",
+    attendance = "Who was in the raid, benched or late, with an export.",
+    loot = "Loot council support (later).",
+}
+
+local frame, content, header, navButtons
+local pages = {}      -- [id] = { build = fn(parent) -> refresh fn, frame, refresh }
+local current
+
+function Main.RegisterPage(id, build)
+    pages[id] = { build = build }
+end
+
+function Main.Frame() return frame end
+
+-- ---------------------------------------------------------------------------
+-- Status (header subtitle): group size, online, in zone, when the raid formed.
+-- ---------------------------------------------------------------------------
+
+local function trackGroupStart()
+    if not SRT.db then return end
+    local w = SRT.db.window
+    if IsInGroup() then
+        w.groupSince = w.groupSince or time()
+    else
+        w.groupSince = nil
+    end
+end
+
+local function statusText()
+    if not IsInGroup() then return "Raid tools", "Not in a group" end
+    local online, total = 0, 0
+    for _, m in ipairs(SRT.Compat.GroupMembers()) do
+        total = total + 1
+        if m.online then online = online + 1 end
+    end
+    local inZone = SRT.Compat.InZoneCount()
+    local title = IsInRaid() and "Tonight" or "Group"
+    local inInstance = IsInInstance()
+    if inInstance then
+        local name = GetInstanceInfo()
+        if name then title = title .. " \194\183 " .. name end
+    end
+    local parts = {
+        ("%d/%d online"):format(online, total),
+        ("%d in zone"):format(inZone),
+    }
+    local since = SRT.db.window.groupSince
+    if since then parts[#parts + 1] = (IsInRaid() and "raid started " or "group formed ") .. date("%H:%M", since) end
+    local breakLeft = SRT.Timers.Remaining("break")
+    if breakLeft then parts[#parts + 1] = "break " .. SRT.Timers.Format(breakLeft) .. " left" end
+    return title, table.concat(parts, " \194\183 ")
+end
+
+-- ---------------------------------------------------------------------------
+-- Building
+-- ---------------------------------------------------------------------------
+
+local function savePosition()
+    local point, _, rel, x, y = frame:GetPoint(1)
+    SRT.db.window.point, SRT.db.window.rel, SRT.db.window.x, SRT.db.window.y = point, rel, x, y
+end
+
+local function applyLook()
+    local s = SRT.db.settings
+    frame.bg:SetAlpha(s.bgAlpha or 0.97)
+    frame.sidebarBg:SetAlpha(s.bgAlpha or 0.97)
+    frame:SetScale(s.scale or 1)
+end
+
+local function buildSidebar()
+    local side = CreateFrame("Frame", nil, frame)
+    side:SetPoint("TOPLEFT")
+    side:SetPoint("BOTTOMLEFT")
+    side:SetWidth(SIDEBAR_W)
+    frame.sidebarBg = W.Fill(side, "sidebar", 1)
+    frame.sidebarBg:SetAllPoints()
+    W.Line(side, "right", "line")
+
+    -- Logo: accent square, "SRT", "RAID TOOLS".
+    local logo = CreateFrame("Frame", nil, side)
+    logo:SetPoint("TOPLEFT")
+    logo:SetPoint("TOPRIGHT")
+    logo:SetHeight(LOGO_H)
+    W.Line(logo, "bottom", "line")
+    local square = logo:CreateTexture(nil, "ARTWORK")
+    square:SetSize(8, 8)
+    square:SetPoint("LEFT", 18, 0)
+    W.OnAccent(function(r, g, b) square:SetColorTexture(r, g, b, 1) end)
+    local srt = W.Text(logo, 4, "text")
+    srt:SetPoint("LEFT", square, "RIGHT", 8, 0)
+    srt:SetText("SRT")
+    local sub = W.Text(logo, -1, "textFaint")
+    sub:SetPoint("LEFT", srt, "RIGHT", 8, 0)
+    sub:SetText("RAID TOOLS")
+
+    -- Footer: version and guild.
+    local footer = CreateFrame("Frame", nil, side)
+    footer:SetPoint("BOTTOMLEFT")
+    footer:SetPoint("BOTTOMRIGHT")
+    footer:SetHeight(FOOTER_H)
+    W.Line(footer, "top", "line")
+    frame.footerText = W.Text(footer, -2, "textFaint")
+    frame.footerText:SetPoint("LEFT", 18, 0)
+
+    -- Scrolling navigation.
+    local scroll = CreateFrame("ScrollFrame", nil, side)
+    scroll:SetPoint("TOPLEFT", 0, -LOGO_H)
+    scroll:SetPoint("BOTTOMRIGHT", -1, FOOTER_H)
+    local list = CreateFrame("Frame", nil, scroll)
+    list:SetWidth(SIDEBAR_W - 1)
+    scroll:SetScrollChild(list)
+    navButtons = {}
+    local y = 6
+    for _, section in ipairs(Main.NAV) do
+        local h = W.Text(list, -2, "textFaint")
+        h:SetPoint("TOPLEFT", 18, -(y + 12))
+        h:SetText(strupper(section[1]))
+        y = y + HEADING_H
+        for _, item in ipairs(section[2]) do
+            local b = CreateFrame("Button", nil, list)
+            b.id = item[1]
+            b:SetPoint("TOPLEFT", 0, -y)
+            b:SetPoint("TOPRIGHT", 0, -y)
+            b:SetHeight(ITEM_H)
+            b.bg = W.Fill(b, "selected", 1)
+            b.bg:SetAllPoints()
+            b.bg:Hide()
+            b.mark = b:CreateTexture(nil, "ARTWORK")
+            b.mark:SetPoint("TOPLEFT")
+            b.mark:SetPoint("BOTTOMLEFT")
+            b.mark:SetWidth(2)
+            W.OnAccent(function(r, g, bl) b.mark:SetColorTexture(r, g, bl, 1) end)
+            b.mark:Hide()
+            b.text = W.Text(b, 0, "textDim")
+            b.text:SetPoint("LEFT", 18, 0)
+            b.text:SetText(item[2])
+            if item[3] then
+                local badge = CreateFrame("Frame", nil, b)
+                badge:SetHeight(14)
+                badge:SetPoint("RIGHT", -16, 0)
+                W.Border(badge, "textFaint")
+                local t = W.Text(badge, -4, "textDim")
+                t:SetPoint("CENTER", 0, 0)
+                t:SetText(item[3])
+                badge:SetWidth(t:GetStringWidth() + 10)
+            end
+            b:SetScript("OnEnter", function(self) if current ~= self.id then self.text:SetTextColor(Theme:Color("text")) end end)
+            b:SetScript("OnLeave", function(self) if current ~= self.id then self.text:SetTextColor(Theme:Color("textDim")) end end)
+            b:SetScript("OnClick", function(self) Main.Show(self.id) end)
+            navButtons[#navButtons + 1] = b
+            y = y + ITEM_H
+        end
+    end
+    list:SetHeight(y + 8)
+    scroll:EnableMouseWheel(true)
+    scroll:SetScript("OnMouseWheel", function(self, delta)
+        local maxScroll = max(0, list:GetHeight() - self:GetHeight())
+        self:SetVerticalScroll(min(maxScroll, max(0, self:GetVerticalScroll() - delta * ITEM_H * 2)))
+    end)
+end
+
+local function buildHeader()
+    header = CreateFrame("Frame", nil, frame)
+    header:SetPoint("TOPLEFT", SIDEBAR_W, 0)
+    header:SetPoint("TOPRIGHT")
+    header:SetHeight(HEADER_H)
+    W.Line(header, "bottom", "line")
+    header:EnableMouse(true)
+    header:RegisterForDrag("LeftButton")
+    header:SetScript("OnDragStart", function() frame:StartMoving() end)
+    header:SetScript("OnDragStop", function()
+        frame:StopMovingOrSizing()
+        savePosition()
+    end)
+    header.title = W.Text(header, 5, "text")
+    header.title:SetPoint("TOPLEFT", 26, -18)
+    header.sub = W.Text(header, -1, "textFaint")
+    header.sub:SetPoint("TOPLEFT", header.title, "BOTTOMLEFT", 0, -6)
+
+    local close = W.CloseButton(header, function() frame:Hide() end)
+    close:SetPoint("TOPRIGHT", -6, -6)
+
+    -- Quick actions, right to left.
+    header.note = W.Button(header, "Send note", "accent", function() Main.Show("notes") end)
+    header.note:SetPoint("RIGHT", -40, -2)
+    header.breakBtn = W.Button(header, "Break 10 min", nil, function()
+        if SRT.Timers.Remaining("break") then SRT.Timers.Break(0) else SRT.Timers.Break(10) end
+    end)
+    header.breakBtn:SetPoint("RIGHT", header.note, "LEFT", -10, 0)
+    header.pull = W.Button(header, "Pull 10s", nil, function() SRT.Timers.Pull(10) end)
+    header.pull:SetPoint("RIGHT", header.breakBtn, "LEFT", -10, 0)
+    header.rc = W.Button(header, "Ready check", nil, function() SRT.Timers.ReadyCheck() end)
+    header.rc:SetPoint("RIGHT", header.pull, "LEFT", -10, 0)
+end
+
+local function refreshHeader()
+    local title, sub = statusText()
+    header.title:SetText(title)
+    header.sub:SetText(sub)
+    local lead -- disabled reason for the leader buttons, nil when allowed
+    if not SRT.Timers.CanLead() then lead = "Only the raid leader or an assistant can do this." end
+    header.rc:SetDisabled(lead or (not IsInGroup() and "Join a group first.") or nil)
+    header.pull:SetDisabled(lead)
+    header.breakBtn:SetDisabled(lead)
+    header.breakBtn:SetLabel(SRT.Timers.Remaining("break") and "End break" or "Break 10 min")
+    header.note:SetDisabled(not pages.notes and "Notes arrive in the next version." or lead)
+    frame.footerText:SetText(("v%s%s"):format(tostring(SRT.version), SRT.Compat.GuildName() and (" \194\183 " .. SRT.Compat.GuildName()) or ""))
+end
+
+local function comingSoon(id, label)
+    local p = CreateFrame("Frame", nil, content)
+    p:SetAllPoints()
+    local card = W.Card(p, label, nil, nil, true)
+    card:SetPoint("TOPLEFT", 26, -24)
+    card:SetPoint("TOPRIGHT", -26, -24)
+    card:SetHeight(110)
+    card.body:SetText((COMING[id] or "") .. "\n\n|cff7c858fComing in a later version.|r")
+    return p
+end
+
+local function labelFor(id)
+    for _, section in ipairs(Main.NAV) do
+        for _, item in ipairs(section[2]) do if item[1] == id then return item[2] end end
+    end
+end
+
+local placeholders = {}
+function Main.Show(id)
+    if not frame then return end
+    if not labelFor(id) then id = "home" end
+    for _, p in pairs(pages) do if p.frame then p.frame:Hide() end end
+    for _, p in pairs(placeholders) do p:Hide() end
+    local page = pages[id]
+    if page then
+        if not page.frame then
+            page.frame = CreateFrame("Frame", nil, content)
+            page.frame:SetAllPoints()
+            page.refresh = page.build(page.frame)
+        end
+        page.frame:Show()
+        if page.refresh then SRT:Call("page " .. id, page.refresh) end
+    else
+        placeholders[id] = placeholders[id] or comingSoon(id, labelFor(id))
+        placeholders[id]:Show()
+    end
+    current = id
+    SRT.db.window.page = id
+    for _, b in ipairs(navButtons) do
+        local on = b.id == id
+        b.bg:SetShown(on)
+        b.mark:SetShown(on)
+        b.text:SetTextColor(Theme:Color(on and "text" or "textDim"))
+    end
+    frame:Show()
+end
+
+-- Header and the visible page again (group changes, timers, settings).
+function Main.Refresh()
+    if not frame or not frame:IsShown() then return end
+    refreshHeader()
+    local page = current and pages[current]
+    if page and page.refresh then SRT:Call("page " .. current, page.refresh) end
+end
+
+local statusTicker
+local function build()
+    frame = CreateFrame("Frame", "SlaughterRaidToolsFrame", UIParent)
+    tinsert(UISpecialFrames, "SlaughterRaidToolsFrame") -- ESC closes it
+    frame:SetSize(WIDTH, HEIGHT)
+    frame:SetFrameStrata("HIGH")
+    frame:SetToplevel(true)
+    frame:SetClampedToScreen(true)
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame.bg = W.Fill(frame, "window", 1)
+    frame.bg:SetAllPoints()
+    W.Border(frame, "line")
+    local w = SRT.db.window
+    if w.point then
+        frame:SetPoint(w.point, UIParent, w.rel or w.point, w.x or 0, w.y or 0)
+    else
+        frame:SetPoint("CENTER", 0, 40)
+    end
+    buildSidebar()
+    buildHeader()
+    content = CreateFrame("Frame", nil, frame)
+    content:SetPoint("TOPLEFT", SIDEBAR_W, -HEADER_H)
+    content:SetPoint("BOTTOMRIGHT")
+    applyLook()
+    frame:SetScript("OnShow", function()
+        refreshHeader()
+        -- The subtitle has live parts (in zone, break left): refresh while open only.
+        statusTicker = statusTicker or C_Timer.NewTicker(1, function() SRT:Call("status", refreshHeader) end)
+    end)
+    frame:SetScript("OnHide", function()
+        if statusTicker then statusTicker:Cancel() statusTicker = nil end
+        W.HideTooltip()
+        W.CloseMenus()
+    end)
+    frame:Hide()
+end
+
+function Main.Toggle(id)
+    if not SRT.db then return end
+    if not frame then
+        -- A failed build must not leave a half-made (invisible) window behind.
+        local ok, err = pcall(build)
+        if not ok then
+            if frame then frame:Hide() end
+            frame = nil
+            SRT:RecordError("window build", err)
+            return
+        end
+    end
+    if frame:IsShown() and not id then frame:Hide() return end
+    Main.Show(id or SRT.db.window.page or "home")
+end
+
+function Main.ResetPosition()
+    SRT.db.window.point, SRT.db.window.rel, SRT.db.window.x, SRT.db.window.y = nil, nil, nil, nil
+    if frame then
+        frame:ClearAllPoints()
+        frame:SetPoint("CENTER", 0, 40)
+    end
+end
+
+SRT:OnSettingChanged(function(key)
+    if frame and (key == "bgAlpha" or key == "scale") then applyLook() end
+end)
+
+local function onGroup()
+    trackGroupStart()
+    Main.Refresh()
+end
+SRT:RegisterEvent("GROUP_ROSTER_UPDATE", onGroup)
+SRT:RegisterEvent("PARTY_LEADER_CHANGED", onGroup)
+SRT:RegisterEvent("PLAYER_ENTERING_WORLD", onGroup)
+SRT:RegisterEvent("ZONE_CHANGED_NEW_AREA", function() Main.Refresh() end)

@@ -5,13 +5,37 @@
 local unpack = table.unpack or unpack
 _G.unpack = unpack
 
+-- Generic fake widget: known getters return sensible values, everything else is a no-op.
+local GETTERS = {
+    GetStringWidth = 50, GetStringHeight = 12, GetEffectiveScale = 1, GetWidth = 800, GetHeight = 600,
+    GetLeft = 100, GetTop = 800, GetRight = 400, GetBottom = 100, GetFrameLevel = 1, IsEnabled = true,
+    IsVisible = true, GetVerticalScroll = 0,
+}
 local scripts = {} -- strong: real frames are kept alive by their parent, mocks are not
 local function mock(kind)
     local o = { _kind = kind, _shown = true }
     return setmetatable(o, { __index = function(_, k)
         if type(k) ~= "string" or not k:match("^%u") then return nil end -- fields: nil, like real frames
         if k == "SetScript" then return function(self, name, fn) scripts[self] = scripts[self] or {}; scripts[self][name] = fn end end
+        if k == "HookScript" then return function() end end
         if k == "RegisterEvent" then return function(_, e) if e:match("^FAKE") then error("unknown event") end end end
+        if k == "Show" then return function(self) local was = self._shown; self._shown = true; local f = not was and scripts[self] and scripts[self].OnShow; if f then f(self) end end end
+        if k == "Hide" then return function(self) local was = self._shown; self._shown = false; local f = was and scripts[self] and scripts[self].OnHide; if f then f(self) end end end
+        if k == "SetShown" then return function(self, v) if v then self:Show() else self:Hide() end end end
+        if k == "IsShown" then return function(self) return self._shown end end
+        if k == "SetColorTexture" or k == "SetTextColor" or k == "SetVertexColor" then
+            return function(_, r, g, b, a)
+                for i, v in ipairs({ r, g, b }) do assert(type(v) == "number", k .. ": component " .. i .. " is " .. type(v)) end
+                assert(a == nil or type(a) == "number", k .. ": alpha is " .. type(a))
+            end
+        end
+        if k == "SetFont" then return function() return true end end
+        if k == "SetText" then return function(self, v) self._text = v end end
+        if k == "GetText" then return function(self) return self._text or "" end end
+        if k == "GetFont" then return function() return "Fonts\\FRIZQT__.TTF", 12 end end
+        if k == "SetAlpha" then return function(self, v) self._alpha = v end end
+        if k == "CreateTexture" or k == "CreateFontString" then return function() return mock(k) end end
+        if GETTERS[k] ~= nil then local v = GETTERS[k]; return function() return v end end
         return function() end
     end })
 end
@@ -46,6 +70,38 @@ end
 
 -- WoW globals.
 CreateFrame = function(kind, name) local f = mock(kind); if name then _G[name] = f end; return f end
+UISpecialFrames = {}
+GetServerTime = function() return 1790000000 + now end
+GetPhysicalScreenSize = function() return 2560, 1440 end
+GetCursorPosition = function() return 500, 500 end
+UnitClass = function() return "Druid", "DRUID", 11 end
+RAID_CLASS_COLORS = { DRUID = { r = 1, g = 0.49, b = 0.04 }, MAGE = { r = 0.25, g = 0.78, b = 0.92 } }
+LOCALIZED_CLASS_NAMES_MALE = { DRUID = "Druid", MAGE = "Mage" }
+IsInGuild = function() return true end
+GetGuildInfo = function() return "Slakthuset" end
+IsInInstance = function() return false, "none" end
+GetInstanceInfo = function() return "Kalimdor", "none", 0 end
+InCombatLockdown = function() return false end
+-- Secret values: any use but passing them around fails, like in the game.
+local SECRET = setmetatable({}, { __add = function() error("arithmetic on a secret value") end,
+    __tostring = function() error("tostring on a secret value") end,
+    __index = function() error("indexing a secret value") end })
+issecretvalue = function(v) return v == SECRET end
+UnitHealth = function() return SECRET end
+UnitHealthMax = function() return SECRET end
+C_Spell = { GetSpellCooldown = function() return { startTime = SECRET, duration = 1.5 } end }
+C_UnitAuras = { GetBuffDataByIndex = function(unit, i)
+    if i > 2 then return nil end
+    return { name = "Flask", spellId = 17628, icon = 1, duration = 7200, expirationTime = unit == "player" and SECRET or 9000 }
+end }
+C_RestrictedActions = { IsAddOnRestrictionActive = function() return true end, Something = function() end }
+C_Secrets = { ShouldAurasBeSecret = function() return SECRET end }
+local countdowns, readyChecks, chatLines = {}, 0, {}
+local countdownWorks = true
+C_PartyInfo = {
+    DoCountdown = function(s) if not countdownWorks then error("blocked") end countdowns[#countdowns + 1] = s end,
+    DoReadyCheck = function() readyChecks = readyChecks + 1 end,
+}
 UIParent = mock("Frame")
 local chat = {}
 DEFAULT_CHAT_FRAME = { AddMessage = function(_, m) chat[#chat + 1] = m; print("[chat] " .. m) end }
@@ -84,8 +140,10 @@ GetNumGroupMembers = function() return inRaid and #ROSTER or 0 end
 GetNumSubgroupMembers = function() return 0 end
 GetRaidRosterInfo = function(i) return ROSTER[i] and ROSTER[i][1] end
 UnitIsConnected = function() return true end
-UnitIsGroupLeader = function(u) return u == "player" end
-UnitIsGroupAssistant = function() return false end
+local leaderUnit = "player"
+local assistants = {}
+UnitIsGroupLeader = function(u) return u == leaderUnit end
+UnitIsGroupAssistant = function(u) return assistants[u] or false end
 
 -- Addon messages: everything sent is recorded; the test delivers messages itself.
 local sent = {}
@@ -100,6 +158,8 @@ C_ChatInfo = {
         sent[#sent + 1] = { prefix = prefix, text = text, channel = channel, target = target, t = now }
         return 0
     end,
+    SendChatMessage = function(msg, channel) chatLines[#chatLines + 1] = { msg = msg, channel = channel } end,
+    AreOutgoingAddonChatMessagesRestricted = function() return false end,
 }
 
 -- Load the TOC files in order with the shared addon table.
@@ -137,7 +197,7 @@ end
 
 step("ADDON_LOADED", function() fire("ADDON_LOADED", "SlaughterRaidTools") end)
 step("PLAYER_LOGIN", function() fire("PLAYER_LOGIN") end)
-step("help", function() SlashCmdList.SLAUGHTERRAIDTOOLS("") assert(chatHas("/srt version")) end)
+step("help", function() SlashCmdList.SLAUGHTERRAIDTOOLS("help") assert(chatHas("/srt version")) end)
 step("full name has the surname", function() assert(SRT.Compat.PlayerName() == "Allemano Moo", SRT.Compat.PlayerName()) end)
 
 step("own messages are ignored", function()
@@ -244,6 +304,137 @@ step("probe", function()
     local p = SRT.db.probe["Player-1-player"]
     assert(p and p.apis and p.events.CHAT_MSG_ADDON == "ok", "probe result missing")
     assert(#p.comm.received >= 1, "probe did not record received messages")
+    assert(p.auras.player[1].expirationTime == "<secret>" and p.auras.raid2[1].name == "Flask", "aura probe wrong")
+end)
+
+-- ---------------------------------------------------------------------------
+-- Window
+-- ---------------------------------------------------------------------------
+
+-- The first visible button whose label is `label` (buttons keep their text in .text).
+local function button(label)
+    for f, s in pairs(scripts) do
+        if s.OnClick and f.text and f.text._text == label and f._shown ~= false then return f end
+    end
+end
+local function click(label)
+    local b = assert(button(label), "no button '" .. label .. "'")
+    scripts[b].OnClick(b, "LeftButton")
+    return b
+end
+
+step("open window", function()
+    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    local f = _G.SlaughterRaidToolsFrame
+    assert(f and f._shown, "window not shown")
+    assert(SRT.db.window.page == "home", "not on home")
+end)
+step("every page opens", function()
+    for _, section in ipairs(SRT.Main.NAV) do
+        for _, item in ipairs(section[2]) do
+            click(item[2])
+            assert(SRT.db.window.page == item[1], "page " .. item[1] .. " not selected")
+        end
+    end
+    click("Home")
+end)
+step("appearance: swatch, class color, font, sizes", function()
+    click("Appearance")
+    local sw
+    for f, s in pairs(scripts) do if s.OnClick and f.hex == "C8332E" then sw = f end end
+    scripts[sw].OnClick(sw)
+    assert(SRT.db.settings.accent == "C8332E", "swatch did not set the accent")
+    assert(select(1, SRT.Theme:Accent()) > 0.7, "accent not applied")
+    SRT:SetSetting("useClassColor", true)
+    local r, g = SRT.Theme:Accent()
+    assert(r == 1 and g == 0.49, "class color not used")
+    for _, kv in ipairs({ { "font", "Arial Narrow" }, { "textSize", "L" }, { "bgAlpha", 0.7 }, { "scale", 1.2 } }) do
+        SRT:SetSetting(kv[1], kv[2])
+    end
+    click("Advanced")
+    click("Home")
+end)
+step("ready check and pull use Blizzard's", function()
+    click("Ready check")
+    assert(readyChecks == 1, "no ready check")
+    click("Pull 10s")
+    assert(countdowns[1] == 10, "no countdown")
+    assert(#sent == 0, "native pull should not need addon messages")
+end)
+step("pull falls back to SRT bars when refused", function()
+    advance(30)
+    countdownWorks = false
+    SlashCmdList.SLAUGHTERRAIDTOOLS("pull 15")
+    countdownWorks = true
+    assert(SRT.Timers.Remaining("pull") == 15, "no local pull bar")
+    assert(#sent == 1 and sent[1].text:find("|TIMER|.*pull|15$"), "no TIMER message")
+    assert(chatLines[#chatLines].msg == "Pull in 15", "no chat line")
+    sent = {}
+    advance(16)
+    assert(SRT.Timers.Remaining("pull") == nil, "pull bar did not end")
+end)
+step("break: bar, message, chat, end", function()
+    advance(30)
+    click("Break 10 min")
+    assert(SRT.Timers.Remaining("break") == 600, "no break bar")
+    assert(SRT.db.timers.running["break"].ends == GetServerTime() + 600, "break not saved for /reload")
+    assert(sent[1].text:find("|TIMER|.*break|600$"), "no TIMER message")
+    assert(chatLines[#chatLines].msg:find("^Break 10 min, back at"), "no chat line")
+    sent = {}
+    advance(1)
+    assert(_G.SlaughterRaidToolsFrame and button("End break"), "button did not switch to End break")
+    click("End break")
+    assert(SRT.Timers.Remaining("break") == nil, "break did not end")
+    assert(chatLines[#chatLines].msg == "Break is over")
+    sent = {}
+end)
+step("timers from raiders: only leader or assist", function()
+    fire("CHAT_MSG_ADDON", "SRT", "1|TIMER|7|1|1|break|300", "RAID", "Kogosh Boll")
+    assert(SRT.Timers.Remaining("break") == nil, "a normal raider started a break")
+    assistants.raid2 = true
+    fire("CHAT_MSG_ADDON", "SRT", "1|TIMER|8|1|1|break|300", "RAID", "Kogosh Boll")
+    assert(SRT.Timers.Remaining("break") == 300, "assistant's break ignored")
+    fire("CHAT_MSG_ADDON", "SRT", "1|TIMER|9|1|1|break|0", "RAID", "Kogosh Boll")
+    assert(SRT.Timers.Remaining("break") == nil, "break 0 did not stop it")
+    assistants.raid2 = nil
+end)
+step("not leader: buttons disabled, slash refused", function()
+    leaderUnit = "raid2"
+    SRT.Main.Refresh()
+    assert(button("Pull 10s").disabledReason, "pull not disabled")
+    local before = #countdowns
+    SlashCmdList.SLAUGHTERRAIDTOOLS("pull")
+    assert(#countdowns == before and chatHas("Only the raid leader"), "pull not refused")
+    leaderUnit = "player"
+    SRT.Main.Refresh()
+    assert(not button("Pull 10s").disabledReason, "pull still disabled")
+end)
+step("combat probe", function()
+    click("Home")
+    click("Run probe")
+    assert(SRT.Probe.CombatState() == "armed")
+    fire("PLAYER_REGEN_DISABLED")
+    advance(2)
+    deliver("Allemano Moo")
+    advance(4)
+    local c = SRT.db.probe["Player-1-player"].combat
+    assert(#c.snapshots == 1, "no snapshot")
+    local s = c.snapshots[1]
+    assert(s.health.player[1] == "<secret>", "secret health not masked")
+    assert(s.addonRestricted[1] == "false" and s.restricted.IsAddOnRestrictionActive[1] == "true", "restriction info missing")
+    assert(s.secrets.ShouldAurasBeSecret[1] == "<secret>", "secret return not masked")
+    assert(s.receivedCount >= 1, "combat message not recorded")
+    fire("ENCOUNTER_START", 610, "Onyxia")
+    advance(3)
+    assert(#c.snapshots == 2 and c.snapshots[2].extra == "610 Onyxia", "encounter snapshot missing")
+    -- A normal probe afterwards keeps the combat results.
+    SlashCmdList.SLAUGHTERRAIDTOOLS("probe")
+    advance(6)
+    assert(SRT.db.probe["Player-1-player"].combat == c, "normal probe dropped the combat probe")
+end)
+step("close window", function()
+    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    assert(not _G.SlaughterRaidToolsFrame._shown, "window did not close")
 end)
 
 step("comm debug toggle", function()

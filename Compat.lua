@@ -85,8 +85,56 @@ function Compat.GroupMembers()
 end
 
 -- Raid leader or assistant (or party leader): allowed to use the leader tools.
-function Compat.IsLeaderOrAssist()
+function Compat.IsLeaderOrAssist(unit)
+    unit = unit or "player"
     if not IsInGroup() then return false end
-    if UnitIsGroupLeader("player") then return true end
-    return IsInRaid() and UnitIsGroupAssistant("player") and true or false
+    if UnitIsGroupLeader(unit) then return true end
+    return IsInRaid() and UnitIsGroupAssistant(unit) and true or false
+end
+
+-- The group unit of a player name ("First Last", realm ignored), nil if not grouped with us.
+function Compat.UnitForName(name)
+    local key = Compat.NameKey(name)
+    for _, m in ipairs(Compat.GroupMembers()) do
+        if Compat.NameKey(m.name) == key then return m.unit end
+    end
+end
+
+-- Members in the same map as the player (the summon question), and the group size.
+function Compat.InZoneCount()
+    local members = Compat.GroupMembers()
+    local here = C_Map and C_Map.GetBestMapForUnit("player")
+    local n = 0
+    for _, m in ipairs(members) do
+        if m.unit == "player" or (here and m.online and C_Map.GetBestMapForUnit(m.unit) == here) then n = n + 1 end
+    end
+    return n, #members
+end
+
+-- Chat channel for a normal message to the group, nil when not grouped.
+function Compat.GroupChatChannel()
+    return Compat.GroupChannel()
+end
+
+function Compat.SendChat(msg, channel)
+    local send = C_ChatInfo and C_ChatInfo.SendChatMessage or SendChatMessage
+    return pcall(send, msg, channel)
+end
+
+-- Blizzard's ready check and pull countdown (C_PartyInfo on Forever). Return false when
+-- the client lacks them or refuses the call.
+function Compat.DoReadyCheck()
+    local fn = C_PartyInfo and C_PartyInfo.DoReadyCheck or DoReadyCheck
+    if not fn then return false end
+    return (pcall(fn))
+end
+
+function Compat.DoCountdown(seconds)
+    local fn = C_PartyInfo and C_PartyInfo.DoCountdown
+    if not fn then return false end
+    return (pcall(fn, seconds))
+end
+
+function Compat.GuildName()
+    return IsInGuild() and GetGuildInfo("player") or nil
 end

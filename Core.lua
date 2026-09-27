@@ -89,7 +89,14 @@ end)
 -- ---------------------------------------------------------------------------
 
 local DEFAULT_SETTINGS = {
-    debugComm = false, -- print every addon message sent and received
+    debugComm = false,     -- print every addon message sent and received
+    accent = "3FC7EB",
+    useClassColor = false,
+    font = "Friz Quadrata",
+    textSize = "M",        -- S / M / L
+    bgAlpha = 0.97,
+    scale = 1,
+    announceBreak = true,  -- post breaks in raid chat (for raiders without SRT)
 }
 
 local function fillDefaults(dst, src)
@@ -102,12 +109,26 @@ local function fillDefaults(dst, src)
     end
 end
 
+-- Settings changes: listeners get (key, value). A failing listener never stops the others.
+local settingListeners = {}
+function SRT:OnSettingChanged(fn) settingListeners[#settingListeners + 1] = fn end
+
+function SRT:SetSetting(key, value)
+    self.db.settings[key] = value
+    for _, fn in ipairs(settingListeners) do
+        local ok, err = pcall(fn, key, value)
+        if not ok then SRT:RecordError("setting " .. tostring(key), err) end
+    end
+end
+
 local function initDB()
     if type(SlaughterRaidToolsDB) ~= "table" then SlaughterRaidToolsDB = {} end
     local db = SlaughterRaidToolsDB
     db.schema = db.schema or SRT.SCHEMA
     db.settings = db.settings or {}
     fillDefaults(db.settings, DEFAULT_SETTINGS)
+    db.window = db.window or {}   -- main window position, last page
+    db.timers = db.timers or {}   -- timer bar position, running timers (survive /reload)
     -- Errors from before the saved data was loaded are kept too.
     db.errors = db.errors or {}
     for _, e in ipairs(SRT.errors) do tinsert(db.errors, e) end
@@ -134,6 +155,13 @@ SRT:RegisterEvent("PLAYER_LOGIN", function()
     wipe(readyCallbacks)
 end)
 
+-- A blocked protected call is the only sign that Forever refused something: keep it.
+local function blocked(event, addon, func)
+    if addon == addonName then SRT:RecordError(event, tostring(func)) end
+end
+SRT:RegisterEvent("ADDON_ACTION_BLOCKED", blocked)
+SRT:RegisterEvent("ADDON_ACTION_FORBIDDEN", blocked)
+
 -- ---------------------------------------------------------------------------
 -- Slash command: other files add subcommands with SRT:AddSlashCommand.
 -- ---------------------------------------------------------------------------
@@ -146,7 +174,7 @@ function SRT:AddSlashCommand(name, fn, help)
 end
 
 local function printHelp()
-    SRT:Print("v" .. tostring(SRT.version) .. " commands:")
+    SRT:Print("v" .. tostring(SRT.version) .. " commands (/srt alone opens the window):")
     for _, name in ipairs(slashOrder) do
         local c = slashCommands[name]
         if c.help then SRT:Print(("/srt %s - %s"):format(name, c.help)) end
@@ -164,6 +192,7 @@ SRT:AddSlashCommand("errors", function(arg)
         SRT:Print(("[%s] %s (v%s): %s"):format(date("%d/%m %H:%M", e.t), e.where, tostring(e.v), e.msg))
     end
 end, "show recent errors (/srt errors clear empties the list)")
+SRT:AddSlashCommand("help", printHelp)
 
 SLASH_SLAUGHTERRAIDTOOLS1 = "/srt"
 SLASH_SLAUGHTERRAIDTOOLS2 = "/slaughterraidtools"
@@ -172,7 +201,9 @@ SlashCmdList.SLAUGHTERRAIDTOOLS = function(msg)
     local cmd, rest = msg:match("^(%S*)%s*(.-)$")
     cmd = strlower(cmd or "")
     local c = slashCommands[cmd]
-    if c then
+    if cmd == "" and SRT.Main then
+        SRT.Main.Toggle()
+    elseif c then
         local ok, err = pcall(c.fn, rest)
         if not ok then SRT:RecordError("/srt " .. cmd, err) end
     else
