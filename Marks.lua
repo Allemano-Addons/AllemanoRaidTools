@@ -91,27 +91,46 @@ local function setFixed(value)
 end
 
 -- Out of combat: prepares the next press for the unit under the mouse.
+-- /srt markdebug: say in chat what the mark button does (to find out why nothing is marked).
+local function debug(fmt, ...)
+    if Marks.debug then SRT:Print("|cff888888[mark] " .. fmt:format(...) .. "|r") end
+end
+
 function Marks.Prepare()
     if not button or InCombatLockdown() or not db().wheel then return end
     if not UnitExists("mouseover") then setFixed(0) return end
     local current = safe(GetRaidTargetIndex("mouseover"))
-    if current and db().lock then setFixed(-1) return end
-    local list = not UnitIsPlayer("mouseover") and Marks.ListFor(safe(UnitName("mouseover")))
+    local name = safe(UnitName("mouseover"))
+    if current and db().lock then
+        setFixed(-1)
+        debug("%s already has icon %s: locked", tostring(name), tostring(current))
+        return
+    end
+    local list = not UnitIsPlayer("mouseover") and Marks.ListFor(name)
     if list then
         setFixed(Marks.NextFree(list) or -1)
+        debug("%s: list, next icon %s", tostring(name), tostring(button:GetAttribute("srt-fixed")))
     else
         setFixed(0)
+        debug("%s: no list, general order", tostring(name))
     end
 end
 
 -- After a press: remember the icon that was given, and lock the unit (it has one now).
 local function afterPress()
+    debug("pressed: macro \"%s\" (mouseover: %s)", tostring(button:GetAttribute("macrotext")),
+        tostring(UnitExists("mouseover") and safe(UnitName("mouseover")) or "nothing"))
     if InCombatLockdown() then return end
     local fixed = button:GetAttribute("srt-fixed") or 0
     local icon = fixed > 0 and fixed or tonumber((button:GetAttribute("macrotext") or ""):match("(%d)$"))
     if icon then usedIcons[icon] = true end
     if db().lock then setFixed(-1) else Marks.Prepare() end
 end
+
+SRT:AddSlashCommand("markdebug", function()
+    Marks.debug = not Marks.debug
+    SRT:Print("Mark debug " .. (Marks.debug and "on: every Ctrl + wheel press is shown in chat." or "off."))
+end, "show what mouseover marking does (for testing)")
 
 function Marks.AddMob(name, zone)
     name = strtrim(name or "")
@@ -161,7 +180,10 @@ local function build()
     button:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -10, 10)
     button:SetAttribute("type", "macro")
     button:SetAttribute("macrotext", "")
-    button:RegisterForClicks("AnyUp", "AnyDown")
+    -- Only "down": a mouse wheel notch has no "up", and with both the lock set after the
+    -- down press stopped the macro that the game runs on the up press.
+    button:RegisterForClicks("AnyDown")
+    button:SetAttribute("useOnKeyDown", true)
     button:SetAttribute("srt-fixed", 0)
     header = CreateFrame("Frame", nil, UIParent, "SecureHandlerBaseTemplate")
     header:WrapScript(button, "OnClick", PRE_CLICK)

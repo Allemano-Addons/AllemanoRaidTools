@@ -1526,7 +1526,9 @@ step("auto log: dungeons only when chosen; a manual log is left alone", function
 end)
 step("mouseover marking: secure button, Ctrl + wheel, icon order", function()
     local btn = _G.SlaughterRaidToolsMarkButton
+    SlashCmdList.SLAUGHTERRAIDTOOLS("markdebug")
     assert(btn and btn._template == "SecureActionButtonTemplate" and btn._attr.type == "macro", "no secure mark button")
+    assert(btn._attr.useOnKeyDown == true, "the mark button must run on key down (a wheel notch has no up)")
     assert(overrideKeys["CTRL-MOUSEWHEELUP"] == "SlaughterRaidToolsMarkButton", "Ctrl + wheel not bound")
     -- Run the secure snippet like the game does before each press.
     local wrapper
@@ -1567,6 +1569,7 @@ end)
 step("mob lists: each mob gets the next free icon of its list, locked, reset after a fight", function()
     local M = SRT.Marks
     local btn = _G.SlaughterRaidToolsMarkButton
+    SlashCmdList.SLAUGHTERRAIDTOOLS("markdebug")
     local wrapper
     for _, f in ipairs(allFrames) do if f._wrapped and f._wrapped.target == btn then wrapper = f._wrapped end end
     local press = assert(load("local self = ...\n" .. wrapper.pre))

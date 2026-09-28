@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.1
+- Fix: Ctrl + mouse wheel did not mark. The mark button took both key down and key up; a
+  wheel notch only has "down", and the lock set after "down" stopped the macro the game runs
+  on "up". It now runs on key down only.
+- `/srt markdebug` says in chat what every press does (for testing).
+
 ## 0.13.0
 - Mob lists for marking (During > Marks), like the TBC marking addons: per zone, a list of
   icons per mob name. Target a mob and "Add target", then pick its icons (click a slot). Before
