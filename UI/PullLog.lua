@@ -1,9 +1,9 @@
 -- Pull log page: one raid night at a time. A summary per boss (pulls, kills, best wipe, kill
 -- time, time in combat) and every pull with its time, combat time and result.
-local _, SRT = ...
+local _, ART = ...
 
-local W = SRT.Widgets
-local Main, PullLog = SRT.Main, SRT.PullLog
+local W = ART.Widgets
+local Main, PullLog = ART.Main, ART.PullLog
 
 local PAD, ROW_H = 26, 20
 
@@ -204,7 +204,7 @@ Main.RegisterPage("pulllog", function(page)
 
     PullLog.OnChange(function() if page:IsShown() then refresh() end end)
     page:SetScript("OnShow", function()
-        liveTicker = liveTicker or C_Timer.NewTicker(1, function() SRT:Call("pull log live", refreshLive) end)
+        liveTicker = liveTicker or C_Timer.NewTicker(1, function() ART:Call("pull log live", refreshLive) end)
     end)
     page:SetScript("OnHide", function()
         if liveTicker then liveTicker:Cancel() liveTicker = nil end

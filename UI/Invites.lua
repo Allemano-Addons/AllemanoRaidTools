@@ -1,9 +1,9 @@
 -- Invites & groups page: Invite (guild ranks, keyword whispers, raid options) and Groups
 -- (paste the OXM roster, drag names between groups, invite the roster, apply the groups).
-local _, SRT = ...
+local _, ART = ...
 
-local Theme, W = SRT.Theme, SRT.Widgets
-local Main, Invites = SRT.Main, SRT.Invites
+local Theme, W = ART.Theme, ART.Widgets
+local Main, Invites = ART.Main, ART.Invites
 
 local PAD, GAP, LINE_H = 26, 10, 18
 
@@ -26,7 +26,7 @@ local function heading(parent, text)
 end
 
 Main.RegisterPage("invites", function(page)
-    local s = SRT.db.invite
+    local s = ART.db.invite
     local mode = "invite"
     local refresh
 
@@ -169,11 +169,11 @@ Main.RegisterPage("invites", function(page)
     profileName:SetPoint("LEFT", profileDrop, "RIGHT", 16, 0)
     local saveAs = W.Button(groupsView, "New", nil, function()
         local name = strtrim(profileName:GetText())
-        if name == "" then SRT:Print("Type a name for the new roster first.") return end
+        if name == "" then ART:Print("Type a name for the new roster first.") return end
         Invites.NewProfile(name)
         profileName:SetText("")
         profileName:ClearFocus()
-        SRT:Print(("New roster \"%s\": paste the OXM roster in the box."):format(name))
+        ART:Print(("New roster \"%s\": paste the OXM roster in the box."):format(name))
     end, 26)
     saveAs:SetPoint("LEFT", profileName, "RIGHT", 6, 0)
     saveAs.tooltip = { "Creates an empty roster with this name and switches to it.",
@@ -254,7 +254,7 @@ Main.RegisterPage("invites", function(page)
                 else
                     ok, why = Invites.AddToGroup(d.name, g, target)
                 end
-                if not ok and why then SRT:Print(why) end
+                if not ok and why then ART:Print(why) end
                 return
             end
         end
@@ -277,7 +277,7 @@ Main.RegisterPage("invites", function(page)
         line:RegisterForDrag("LeftButton")
         line:SetScript("OnEnter", function(self) if self.filled or drag then self.hl:Show() end end)
         line:SetScript("OnLeave", function(self) self.hl:Hide() end)
-        line:SetScript("OnDragStop", function() SRT:Call("roster drop", drop) end)
+        line:SetScript("OnDragStop", function() ART:Call("roster drop", drop) end)
         return line
     end
 
@@ -356,7 +356,7 @@ Main.RegisterPage("invites", function(page)
     empty:SetWordWrap(true)
 
     local function refreshGroups()
-        if not paste.edit:HasFocus() then paste.edit:SetText(SRT.db.roster.text or "") end
+        if not paste.edit:HasFocus() then paste.edit:SetText(ART.db.roster.text or "") end
         profileDrop:Set(Invites.CurrentProfile())
         profileName.placeholder:SetShown(profileName:GetText() == "" and not profileName:HasFocus())
         deleteProfile.tooltip = ("Deletes \"%s\"."):format(Invites.CurrentProfile() or "")
@@ -445,8 +445,8 @@ Main.RegisterPage("invites", function(page)
             summary:SetText(("%d/%d in the group \194\183 %d in their group \194\183 %d can be invited"):format(
                 counts.raid, counts.filled, counts.right, counts.guild))
         end
-        local lead = not SRT.Compat.IsLeaderOrAssist() and "Only the raid leader or an assistant can do this." or nil
-        local s2 = SRT.db.invite
+        local lead = not ART.Compat.IsLeaderOrAssist() and "Only the raid leader or an assistant can do this." or nil
+        local s2 = ART.db.invite
         inviteRoster:SetLabel(("Invite roster (%d)"):format(counts.guild))
         inviteRoster.tooltip = (s2.announce ~= "OFF" and strtrim(s2.announceText or "") ~= "")
             and { "Invites everyone on the roster who is online in the guild.",
@@ -469,8 +469,8 @@ Main.RegisterPage("invites", function(page)
     end
 
     Invites.OnChange(function() if page:IsShown() then refresh() end end)
-    page:SetScript("OnShow", function() SRT.Compat.RequestGuildRoster() end)
+    page:SetScript("OnShow", function() ART.Compat.RequestGuildRoster() end)
     page:SetScript("OnSizeChanged", function() if page:IsShown() then refresh() end end)
-    SRT.Compat.RequestGuildRoster()
+    ART.Compat.RequestGuildRoster()
     return refresh
 end)

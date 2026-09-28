@@ -1,16 +1,16 @@
--- Comm: addon messages between SRT users. Long payloads are split into parts, sending
+-- Comm: addon messages between ART users. Long payloads are split into parts, sending
 -- is paced so the client never throttles us, and the parts are joined again on the
 -- other side before the handler for that message kind runs.
 --
 -- Wire format (one addon message, max 255 bytes):
 --   <proto>|<kind>|<id>|<part>|<parts>|<data>
 -- kind = short upper-case name ("VQ", "NOTE"...), id = per-sender message number.
-local _, SRT = ...
+local _, ART = ...
 
 local Comm = {}
-SRT.Comm = Comm
+ART.Comm = Comm
 
-Comm.PREFIX = "SRT"
+Comm.PREFIX = "ART"
 Comm.PROTO = 1
 local MAX_MSG = 255
 local BURST = 8          -- messages we may send at once
@@ -26,7 +26,7 @@ local nextId = 0
 local incoming = {} -- [sender#id] = { parts = {}, got = n, total = n, t = time }
 
 local function debug(fmt, ...)
-    if SRT.db and SRT.db.settings.debugComm then SRT:Print("|cff888888" .. fmt:format(...) .. "|r") end
+    if ART.db and ART.db.settings.debugComm then ART:Print("|cff888888" .. fmt:format(...) .. "|r") end
 end
 
 if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
@@ -62,7 +62,7 @@ local function pump()
         end
     end
     if queue[1] and not ticker then
-        ticker = C_Timer.NewTicker(0.25, function() SRT:Call("Comm pump", pump) end)
+        ticker = C_Timer.NewTicker(0.25, function() ART:Call("Comm pump", pump) end)
     elseif not queue[1] and ticker then
         ticker:Cancel()
         ticker = nil
@@ -72,7 +72,7 @@ end
 -- Sends payload (a string) to channel (default: the current group). target is the
 -- player name for "WHISPER". Returns the number of parts, or nil and a reason.
 function Comm.Send(kind, payload, channel, target)
-    channel = channel or SRT.Compat.GroupChannel()
+    channel = channel or ART.Compat.GroupChannel()
     if not channel then return nil, "not in a group" end
     payload = tostring(payload or "")
     nextId = nextId % 9999 + 1
@@ -94,11 +94,11 @@ end
 
 function Comm.QueueSize() return #queue end
 
--- [nameKey] = GetTime() of the last SRT message from that player: who runs SRT.
+-- [nameKey] = GetTime() of the last ART message from that player: who runs ART.
 Comm.seen = {}
 
 function Comm.IsSelf(sender)
-    return SRT.Compat.NameKey(sender) == SRT.Compat.NameKey(SRT.Compat.PlayerName())
+    return ART.Compat.NameKey(sender) == ART.Compat.NameKey(ART.Compat.PlayerName())
 end
 
 local function purge(now)
@@ -113,12 +113,12 @@ local function dispatch(kind, sender, payload, channel)
         debug("no handler for %s from %s", kind, tostring(sender))
         return
     end
-    SRT:Call("Comm " .. kind, fn, sender, payload, channel)
+    ART:Call("Comm " .. kind, fn, sender, payload, channel)
 end
 
 -- Comm.rawListener(text, channel, sender, target) sees every message with our prefix
--- before parsing (used by /srt probe).
-SRT:RegisterEvent("CHAT_MSG_ADDON", function(_, prefix, text, channel, sender, target)
+-- before parsing (used by /art probe).
+ART:RegisterEvent("CHAT_MSG_ADDON", function(_, prefix, text, channel, sender, target)
     if prefix ~= Comm.PREFIX then return end
     if Comm.rawListener then Comm.rawListener(text, channel, sender, target) end
     local proto, kind, id, part, total, data = text:match("^(%d+)|([%w_]+)|(%d+)|(%d+)|(%d+)|(.*)$")
@@ -131,7 +131,7 @@ SRT:RegisterEvent("CHAT_MSG_ADDON", function(_, prefix, text, channel, sender, t
         return
     end
     if Comm.IsSelf(sender) then return end
-    Comm.seen[SRT.Compat.NameKey(sender)] = GetTime()
+    Comm.seen[ART.Compat.NameKey(sender)] = GetTime()
     part, total = tonumber(part), tonumber(total)
     if total == 1 then
         debug("got %s from %s", kind, tostring(sender))
@@ -158,7 +158,7 @@ SRT:RegisterEvent("CHAT_MSG_ADDON", function(_, prefix, text, channel, sender, t
 end)
 
 -- ---------------------------------------------------------------------------
--- Test tools: /srt comm test <bytes> sends a long message the others check.
+-- Test tools: /art comm test <bytes> sends a long message the others check.
 -- ---------------------------------------------------------------------------
 
 local function checksum(s)
@@ -171,11 +171,11 @@ Comm.Checksum = checksum
 Comm.Register("ECHO", function(sender, payload)
     local len, sum, body = payload:match("^(%d+):(%d+):(.*)$")
     local ok = body and #body == tonumber(len) and checksum(body) == tonumber(sum)
-    SRT:Print(("Test message from %s: %d bytes, %s"):format(sender, body and #body or 0,
+    ART:Print(("Test message from %s: %d bytes, %s"):format(sender, body and #body or 0,
         ok and "|cff3fc77fintact|r" or "|cffe8483dbroken|r"))
 end)
 
-SRT:AddSlashCommand("comm", function(arg)
+ART:AddSlashCommand("comm", function(arg)
     local sub, rest = (arg or ""):match("^(%S*)%s*(.-)$")
     sub = strlower(sub or "")
     if sub == "test" then
@@ -185,15 +185,15 @@ SRT:AddSlashCommand("comm", function(arg)
         local body = table.concat(chars)
         local parts, err = Comm.Send("ECHO", ("%d:%d:%s"):format(n, checksum(body), body))
         if parts then
-            SRT:Print(("Sending %d bytes in %d parts to the group."):format(n, parts))
+            ART:Print(("Sending %d bytes in %d parts to the group."):format(n, parts))
         else
-            SRT:Print("Cannot send: " .. err)
+            ART:Print("Cannot send: " .. err)
         end
     elseif sub == "debug" then
-        SRT.db.settings.debugComm = not SRT.db.settings.debugComm
-        SRT:Print("Addon message debug " .. (SRT.db.settings.debugComm and "on" or "off") .. ".")
+        ART.db.settings.debugComm = not ART.db.settings.debugComm
+        ART:Print("Addon message debug " .. (ART.db.settings.debugComm and "on" or "off") .. ".")
     else
-        SRT:Print("/srt comm test <bytes> - send a test message the group checks")
-        SRT:Print("/srt comm debug - print every addon message")
+        ART:Print("/art comm test <bytes> - send a test message the group checks")
+        ART:Print("/art comm debug - print every addon message")
     end
 end, "addon message tests (test, debug)")

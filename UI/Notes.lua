@@ -1,9 +1,9 @@
 -- Notes page: the leader's saved notes (list + editor + send) and the personal note.
 -- Everything saves while typing.
-local _, SRT = ...
+local _, ART = ...
 
-local Theme, W = SRT.Theme, SRT.Widgets
-local Main, Notes = SRT.Main, SRT.Notes
+local Theme, W = ART.Theme, ART.Widgets
+local Main, Notes = ART.Main, ART.Notes
 
 local PAD, LIST_W, ROW_H = 26, 190, 40
 
@@ -56,7 +56,7 @@ Main.RegisterPage("notes", function(page)
     tabs:SetPoint("TOPLEFT", PAD, -20)
 
     local windowBtn = W.Button(page, "Show note window", nil, function()
-        SRT.NoteWindow.Toggle()
+        ART.NoteWindow.Toggle()
         refresh()
     end, 24)
     windowBtn:SetPoint("TOPRIGHT", -PAD, -20)
@@ -149,7 +149,7 @@ Main.RegisterPage("notes", function(page)
     local names
     names = W.Dropdown(toolbar, 150, function()
         local opts = {}
-        for _, m in ipairs(SRT.Compat.GroupMembers()) do opts[#opts + 1] = { value = m.name, label = m.name } end
+        for _, m in ipairs(ART.Compat.GroupMembers()) do opts[#opts + 1] = { value = m.name, label = m.name } end
         sort(opts, function(a, b) return a.label < b.label end)
         return opts
     end, function(name)
@@ -189,14 +189,14 @@ Main.RegisterPage("notes", function(page)
     local pInfo = W.Text(personalView, 0, "textDim")
     pInfo:SetPoint("TOPLEFT", PAD, 0)
     pInfo:SetText("Only you see this note. It is shown under the raid note in the note window.")
-    local pToggle = W.Toggle(personalView, function(on) SRT:SetSetting("notePersonal", on) end)
+    local pToggle = W.Toggle(personalView, function(on) ART:SetSetting("notePersonal", on) end)
     pToggle:SetPoint("TOPRIGHT", -PAD, 0)
     local pLabel = W.Text(personalView, -1, "textDim")
     pLabel:SetPoint("RIGHT", pToggle, "LEFT", -8, 0)
     pLabel:SetText("Show in note window")
     local personal = W.MultiEdit(personalView, function(text)
         Notes.SetPersonal(text)
-        SRT.NoteWindow.Refresh()
+        ART.NoteWindow.Refresh()
     end)
     personal:SetPoint("TOPLEFT", PAD, -30)
     personal:SetPoint("BOTTOMRIGHT", -PAD, 20)
@@ -213,10 +213,10 @@ Main.RegisterPage("notes", function(page)
         tabs:Set(mode)
         raidView:SetShown(mode == "raid")
         personalView:SetShown(mode == "personal")
-        windowBtn:SetLabel(SRT.NoteWindow.IsShown() and "Hide note window" or "Show note window")
+        windowBtn:SetLabel(ART.NoteWindow.IsShown() and "Hide note window" or "Show note window")
         if mode == "personal" then
             if not personal.edit:HasFocus() then personal.edit:SetText(Notes.Personal()) end
-            pToggle:Set(SRT.db.settings.notePersonal)
+            pToggle:Set(ART.db.settings.notePersonal)
             return
         end
         local all = Notes.List()

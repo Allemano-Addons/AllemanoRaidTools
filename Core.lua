@@ -1,38 +1,38 @@
--- SlaughterRaidTools: core namespace, event dispatcher, SavedVariables and slash command.
-local addonName, SRT = ...
+-- AllemanoRaidTools: core namespace, event dispatcher, SavedVariables and slash command.
+local addonName, ART = ...
 
-SRT.name = addonName
-SRT.SCHEMA = 1
--- The SRT mark in white (Media/SRT_mark_white.tga, made from Media/SRT_logo_512.png), tinted
+ART.name = addonName
+ART.SCHEMA = 1
+-- The ART mark in white (Media/ART_mark_white.tga, made from Media/ART_logo_512.png), tinted
 -- with the accent color wherever it is shown.
-SRT.MARK = "Interface\\AddOns\\" .. addonName .. "\\Media\\SRT_mark_white"
+ART.MARK = "Interface\\AddOns\\" .. addonName .. "\\Media\\ART_mark_white"
 
-function SRT:Print(...)
+function ART:Print(...)
     local msg = strjoin(" ", tostringall(...))
-    DEFAULT_CHAT_FRAME:AddMessage("|cffc8332eSRT|r " .. msg)
+    DEFAULT_CHAT_FRAME:AddMessage("|cffc8332eART|r " .. msg)
 end
 
 -- ---------------------------------------------------------------------------
 -- Errors: WoW Forever does not show Lua errors, so they are kept (last 10, also in
--- SlaughterRaidToolsDB.errors), announced once per session and listed by /srt errors.
+-- AllemanoRaidToolsDB.errors), announced once per session and listed by /art errors.
 -- ---------------------------------------------------------------------------
 
-SRT.errors = {}
+ART.errors = {}
 local announced = false
 
-function SRT:RecordError(where, err)
+function ART:RecordError(where, err)
     local list = self.errors
     list[#list + 1] = { t = time(), where = tostring(where), msg = tostring(err):sub(1, 400), v = self.version }
     while #list > 10 do tremove(list, 1) end
     if not announced then
         announced = true
-        self:Print("|cffe8a33dhit an error|r (" .. tostring(where) .. "). /srt errors shows it.")
+        self:Print("|cffe8a33dhit an error|r (" .. tostring(where) .. "). /art errors shows it.")
     end
     geterrorhandler()(err)
 end
 
 -- Run fn protected; errors are recorded instead of lost.
-function SRT:Call(where, fn, ...)
+function ART:Call(where, fn, ...)
     local ok, err = pcall(fn, ...)
     if not ok then self:RecordError(where, err) end
     return ok
@@ -47,7 +47,7 @@ local eventFrame = CreateFrame("Frame")
 local eventHandlers = {}
 
 -- Returns false if the client does not know the event.
-function SRT:RegisterEvent(event, handler)
+function ART:RegisterEvent(event, handler)
     local list = eventHandlers[event]
     if not list then
         if not pcall(eventFrame.RegisterEvent, eventFrame, event) then return false end
@@ -58,7 +58,7 @@ function SRT:RegisterEvent(event, handler)
     return true
 end
 
-function SRT:UnregisterEvent(event, handler)
+function ART:UnregisterEvent(event, handler)
     local list = eventHandlers[event]
     if not list then return end
     for i = #list, 1, -1 do
@@ -77,13 +77,13 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
     local n = #list
     if n == 1 then
         local ok, err = pcall(list[1], event, ...)
-        if not ok then SRT:RecordError(event, err) end
+        if not ok then ART:RecordError(event, err) end
         return
     end
     local snapshot = { unpack(list, 1, n) }
     for i = 1, n do
         local ok, err = pcall(snapshot[i], event, ...)
-        if not ok then SRT:RecordError(event, err) end
+        if not ok then ART:RecordError(event, err) end
     end
 end)
 
@@ -99,7 +99,7 @@ local DEFAULT_SETTINGS = {
     textSize = "M",        -- S / M / L
     bgAlpha = 0.97,
     scale = 1,
-    announceBreak = true,  -- post breaks in raid chat (for raiders without SRT)
+    announceBreak = true,  -- post breaks in raid chat (for raiders without ART)
     noteAutoShow = true,   -- open the note window when a new raid note arrives
     notePersonal = true,   -- show the personal note under the raid note
     noteAlpha = 0.85,      -- note window background opacity (0 = see-through)
@@ -123,20 +123,20 @@ end
 
 -- Settings changes: listeners get (key, value). A failing listener never stops the others.
 local settingListeners = {}
-function SRT:OnSettingChanged(fn) settingListeners[#settingListeners + 1] = fn end
+function ART:OnSettingChanged(fn) settingListeners[#settingListeners + 1] = fn end
 
-function SRT:SetSetting(key, value)
+function ART:SetSetting(key, value)
     self.db.settings[key] = value
     for _, fn in ipairs(settingListeners) do
         local ok, err = pcall(fn, key, value)
-        if not ok then SRT:RecordError("setting " .. tostring(key), err) end
+        if not ok then ART:RecordError("setting " .. tostring(key), err) end
     end
 end
 
 local function initDB()
-    if type(SlaughterRaidToolsDB) ~= "table" then SlaughterRaidToolsDB = {} end
-    local db = SlaughterRaidToolsDB
-    db.schema = db.schema or SRT.SCHEMA
+    if type(AllemanoRaidToolsDB) ~= "table" then AllemanoRaidToolsDB = {} end
+    local db = AllemanoRaidToolsDB
+    db.schema = db.schema or ART.SCHEMA
     db.settings = db.settings or {}
     fillDefaults(db.settings, DEFAULT_SETTINGS)
     db.window = db.window or {}   -- main window position, last page
@@ -163,10 +163,10 @@ local function initDB()
     db.visual.viewer = db.visual.viewer or {}
     db.raidcheck = db.raidcheck or {} -- raid check: categories (editable), options
     fillDefaults(db.raidcheck, { popup = "all", closeAfter = 8, minDurability = 50, onlyMissing = false, window = {} })
-    if not db.raidcheck.categories then db.raidcheck.categories = CopyTable(SRT.RaidCheck.DEFAULTS) end
+    if not db.raidcheck.categories then db.raidcheck.categories = CopyTable(ART.RaidCheck.DEFAULTS) end
     db.launcher = db.launcher or {} -- launcher button position, hidden, locked (UI/Launcher.lua)
     db.marks = db.marks or {}       -- mouseover marking: icon order, icons turned off, Ctrl + wheel
-    if not db.marks.order then db.marks.order = CopyTable(SRT.Marks.DEFAULT_ORDER) end
+    if not db.marks.order then db.marks.order = CopyTable(ART.Marks.DEFAULT_ORDER) end
     db.marks.off = db.marks.off or {}
     if db.marks.wheel == nil then db.marks.wheel = true end
     db.marks.mobs = db.marks.mobs or {}   -- [zone][mob name] = { icon, ... }
@@ -177,86 +177,86 @@ local function initDB()
     -- db.active = the raid note shown in the note window, db.lastSent = who confirmed ours
     -- Errors from before the saved data was loaded are kept too.
     db.errors = db.errors or {}
-    for _, e in ipairs(SRT.errors) do tinsert(db.errors, e) end
+    for _, e in ipairs(ART.errors) do tinsert(db.errors, e) end
     while #db.errors > 10 do tremove(db.errors, 1) end
-    SRT.errors = db.errors
-    SRT.db = db
+    ART.errors = db.errors
+    ART.db = db
 end
 
--- Code that needs the saved data runs through SRT:OnReady (right away if already loaded).
+-- Code that needs the saved data runs through ART:OnReady (right away if already loaded).
 local readyCallbacks = {}
-function SRT:OnReady(fn)
+function ART:OnReady(fn)
     if self.ready then self:Call("OnReady", fn) else readyCallbacks[#readyCallbacks + 1] = fn end
 end
 
-SRT:RegisterEvent("ADDON_LOADED", function(_, name)
+ART:RegisterEvent("ADDON_LOADED", function(_, name)
     if name ~= addonName then return end
     initDB()
-    SRT.version = SRT.Compat.GetAddOnMetadata(addonName, "Version") or "?"
+    ART.version = ART.Compat.GetAddOnMetadata(addonName, "Version") or "?"
     -- Errors from an older version were fixed (or are no longer relevant): drop them.
-    for i = #SRT.errors, 1, -1 do
-        local v = SRT.errors[i].v
-        if v and v ~= SRT.version then tremove(SRT.errors, i) end
+    for i = #ART.errors, 1, -1 do
+        local v = ART.errors[i].v
+        if v and v ~= ART.version then tremove(ART.errors, i) end
     end
 end)
 
-SRT:RegisterEvent("PLAYER_LOGIN", function()
-    SRT.ready = true
-    for _, fn in ipairs(readyCallbacks) do SRT:Call("OnReady", fn) end
+ART:RegisterEvent("PLAYER_LOGIN", function()
+    ART.ready = true
+    for _, fn in ipairs(readyCallbacks) do ART:Call("OnReady", fn) end
     wipe(readyCallbacks)
 end)
 
 -- A blocked protected call is the only sign that Forever refused something: keep it.
 local function blocked(event, addon, func)
-    if addon == addonName then SRT:RecordError(event, tostring(func)) end
+    if addon == addonName then ART:RecordError(event, tostring(func)) end
 end
-SRT:RegisterEvent("ADDON_ACTION_BLOCKED", blocked)
-SRT:RegisterEvent("ADDON_ACTION_FORBIDDEN", blocked)
+ART:RegisterEvent("ADDON_ACTION_BLOCKED", blocked)
+ART:RegisterEvent("ADDON_ACTION_FORBIDDEN", blocked)
 
 -- ---------------------------------------------------------------------------
--- Slash command: other files add subcommands with SRT:AddSlashCommand.
+-- Slash command: other files add subcommands with ART:AddSlashCommand.
 -- ---------------------------------------------------------------------------
 
 local slashCommands, slashOrder = {}, {}
 
-function SRT:AddSlashCommand(name, fn, help)
+function ART:AddSlashCommand(name, fn, help)
     if not slashCommands[name] then slashOrder[#slashOrder + 1] = name end
     slashCommands[name] = { fn = fn, help = help }
 end
 
 local function printHelp()
-    SRT:Print("v" .. tostring(SRT.version) .. " commands (/srt alone opens the window):")
+    ART:Print("v" .. tostring(ART.version) .. " commands (/art alone opens the window):")
     for _, name in ipairs(slashOrder) do
         local c = slashCommands[name]
-        if c.help then SRT:Print(("/srt %s - %s"):format(name, c.help)) end
+        if c.help then ART:Print(("/art %s - %s"):format(name, c.help)) end
     end
 end
 
-SRT:AddSlashCommand("errors", function(arg)
+ART:AddSlashCommand("errors", function(arg)
     if strlower(arg or "") == "clear" then
-        wipe(SRT.errors)
-        SRT:Print("Error list cleared.")
+        wipe(ART.errors)
+        ART:Print("Error list cleared.")
         return
     end
-    if #SRT.errors == 0 then SRT:Print("No errors recorded.") return end
-    for _, e in ipairs(SRT.errors) do
-        SRT:Print(("[%s] %s (v%s): %s"):format(date("%d/%m %H:%M", e.t), e.where, tostring(e.v), e.msg))
+    if #ART.errors == 0 then ART:Print("No errors recorded.") return end
+    for _, e in ipairs(ART.errors) do
+        ART:Print(("[%s] %s (v%s): %s"):format(date("%d/%m %H:%M", e.t), e.where, tostring(e.v), e.msg))
     end
-end, "show recent errors (/srt errors clear empties the list)")
-SRT:AddSlashCommand("help", printHelp)
+end, "show recent errors (/art errors clear empties the list)")
+ART:AddSlashCommand("help", printHelp)
 
-SLASH_SLAUGHTERRAIDTOOLS1 = "/srt"
-SLASH_SLAUGHTERRAIDTOOLS2 = "/slaughterraidtools"
-SlashCmdList.SLAUGHTERRAIDTOOLS = function(msg)
+SLASH_ALLEMANORAIDTOOLS1 = "/art"
+SLASH_ALLEMANORAIDTOOLS2 = "/allemanoraidtools"
+SlashCmdList.ALLEMANORAIDTOOLS = function(msg)
     msg = strtrim(msg or "")
     local cmd, rest = msg:match("^(%S*)%s*(.-)$")
     cmd = strlower(cmd or "")
     local c = slashCommands[cmd]
-    if cmd == "" and SRT.Main then
-        SRT.Main.Toggle()
+    if cmd == "" and ART.Main then
+        ART.Main.Toggle()
     elseif c then
         local ok, err = pcall(c.fn, rest)
-        if not ok then SRT:RecordError("/srt " .. cmd, err) end
+        if not ok then ART:RecordError("/art " .. cmd, err) end
     else
         printHelp()
     end

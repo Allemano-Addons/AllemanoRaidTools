@@ -1,4 +1,4 @@
 <Bindings>
-    <Binding name="CLICK SlaughterRaidToolsMarkButton:LeftButton" header="SLAUGHTERRAIDTOOLS" category="ADDONS">
+    <Binding name="CLICK AllemanoRaidToolsMarkButton:LeftButton" header="ALLEMANORAIDTOOLS" category="ADDONS">
     </Binding>
 </Bindings>

@@ -1,17 +1,17 @@
 -- Note window: the raid note (and the personal note below it) for everyone. A HUD-like
 -- window: it stays open through ESC, can be moved, resized and locked in place.
-local _, SRT = ...
+local _, ART = ...
 
-local Theme, W = SRT.Theme, SRT.Widgets
+local Theme, W = ART.Theme, ART.Widgets
 
 local NoteWindow = {}
-SRT.NoteWindow = NoteWindow
+ART.NoteWindow = NoteWindow
 
 local TITLE_H, PAD = 24, 10
 local MIN_W, MIN_H, MAX_W, MAX_H = 180, 80, 900, 900
 local frame
 
-local function saved() return SRT.db.noteWindow end
+local function saved() return ART.db.noteWindow end
 
 local function savePosition()
     local point, _, rel, x, y = frame:GetPoint(1)
@@ -43,26 +43,26 @@ end
 
 function NoteWindow.Refresh()
     if not frame then return end
-    local a = SRT.Notes.Active()
+    local a = ART.Notes.Active()
     if a then
         frame.title:SetText(a.title ~= "" and a.title or "Note")
-        frame.raidText:SetText(SRT.Notes.Render(a.text))
+        frame.raidText:SetText(ART.Notes.Render(a.text))
         frame.from = ("From %s, %s"):format(a.sender or "?", date("%H:%M", a.at or time()))
     else
         frame.title:SetText("Note")
-        frame.raidText:SetText("|cff7c858fNo raid note yet. The raid leader sends it from SRT.|r")
+        frame.raidText:SetText("|cff7c858fNo raid note yet. The raid leader sends it from ART.|r")
         frame.from = nil
     end
-    local personal = SRT.db.settings.notePersonal and SRT.Notes.Personal() or ""
+    local personal = ART.db.settings.notePersonal and ART.Notes.Personal() or ""
     frame.personalText:SetShown(personal ~= "")
-    frame.personalText:SetText(personal ~= "" and SRT.Notes.Render(personal) or "")
+    frame.personalText:SetText(personal ~= "" and ART.Notes.Render(personal) or "")
     layout()
 end
 
 -- Background opacity (settings.noteAlpha, 0 = fully see-through). The border and title
 -- line fade with it; the text always stays readable.
 local function applyAlpha()
-    local a = SRT.db.settings.noteAlpha or 0.85
+    local a = ART.db.settings.noteAlpha or 0.85
     frame.bg:SetAlpha(a)
     for _, line in ipairs(frame.lines) do line:SetAlpha(a) end
 end
@@ -138,7 +138,7 @@ local function build()
     frame.title = W.Text(bar, -1, "text")
     frame.title:SetPoint("LEFT", square, "RIGHT", 6, 0)
     frame.title:SetPoint("RIGHT", -70, 0)
-    local close = smallButton(bar, "x", "Hide the note (/srt note shows it again)", function() NoteWindow.Hide() end)
+    local close = smallButton(bar, "x", "Hide the note (/art note shows it again)", function() NoteWindow.Hide() end)
     close:SetPoint("RIGHT", -4, 0)
     frame.lock = smallButton(bar, "lock", "Lock or unlock position and size", function()
         saved().locked = not saved().locked or nil
@@ -191,7 +191,7 @@ local function build()
         layout()
     end)
     frame.grip = grip
-    frame:SetScript("OnSizeChanged", function() SRT:Call("note layout", layout) end)
+    frame:SetScript("OnSizeChanged", function() ART:Call("note layout", layout) end)
     applyLock()
     applyAlpha()
     frame:Hide()
@@ -207,13 +207,13 @@ function NoteWindow.Show()
     saved().shown = true
     frame:Show()
     NoteWindow.Refresh()
-    if SRT.Toolbar then SRT.Toolbar.Refresh() end
+    if ART.Toolbar then ART.Toolbar.Refresh() end
 end
 
 function NoteWindow.Hide()
     saved().shown = nil
     if frame then frame:Hide() end
-    if SRT.Toolbar then SRT.Toolbar.Refresh() end
+    if ART.Toolbar then ART.Toolbar.Refresh() end
 end
 
 function NoteWindow.Toggle()
@@ -222,11 +222,11 @@ end
 
 function NoteWindow.IsShown() return frame ~= nil and frame:IsShown() end
 
-SRT.Notes.OnChange(function() if frame and frame:IsShown() then NoteWindow.Refresh() end end)
-SRT:OnSettingChanged(function(key)
+ART.Notes.OnChange(function() if frame and frame:IsShown() then NoteWindow.Refresh() end end)
+ART:OnSettingChanged(function(key)
     if key == "notePersonal" or key == "accent" or key == "useClassColor" then NoteWindow.Refresh() end
     if key == "noteAlpha" and frame then applyAlpha() end
 end)
-SRT:OnReady(function() if saved().shown then NoteWindow.Show() end end)
+ART:OnReady(function() if saved().shown then NoteWindow.Show() end end)
 
-SRT:AddSlashCommand("note", function() NoteWindow.Toggle() end, "show or hide the note window")
+ART:AddSlashCommand("note", function() NoteWindow.Toggle() end, "show or hide the note window")

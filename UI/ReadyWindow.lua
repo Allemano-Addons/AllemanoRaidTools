@@ -2,13 +2,13 @@
 -- group's consumables as the buffs' own icons, with the ready check timer in the title.
 -- It closes itself after the check (8 s when everyone was ready, adjustable; 15 s otherwise),
 -- never while the mouse is over it.
-local _, SRT = ...
+local _, ART = ...
 
-local Theme, W = SRT.Theme, SRT.Widgets
-local RaidCheck = SRT.RaidCheck
+local Theme, W = ART.Theme, ART.Widgets
+local RaidCheck = ART.RaidCheck
 
 local ReadyWindow = {}
-SRT.ReadyWindow = ReadyWindow
+ART.ReadyWindow = ReadyWindow
 
 local TITLE_H, HEAD_H, ROW_H, NAME_W, PAD = 24, 30, 20, 120, 8
 local MAX_ROWS = 25
@@ -24,7 +24,7 @@ local frame, ticker
 local endsAt, finished, closeToken = 0, nil, 0
 local rows, heads = {}, {}
 
-local function saved() return SRT.db.raidcheck.window end
+local function saved() return ART.db.raidcheck.window end
 
 local function columns()
     local out = {}
@@ -80,7 +80,7 @@ local function build()
     details.text:SetPoint("LEFT")
     details.text:SetText("Details")
     details.text:SetTextColor(Theme:Color("sidebar"))
-    details:SetScript("OnClick", function() SRT.Main.Toggle("raidcheck") end)
+    details:SetScript("OnClick", function() ART.Main.Toggle("raidcheck") end)
     details:SetScript("OnEnter", function(self) W.ShowTooltip(self, "Open the raid check page (post missing, categories)") end)
     details:SetScript("OnLeave", function() W.HideTooltip() end)
 
@@ -247,12 +247,12 @@ end
 
 local function updateTitle()
     local left = endsAt - GetTime()
-    -- Opened without a real ready check (/srt rcwindow): finish when the timer runs out.
+    -- Opened without a real ready check (/art rcwindow): finish when the timer runs out.
     if finished == nil and left <= 0 and not RaidCheck.running then ReadyWindow.Finish(RaidCheck.AllReady()) end
     if finished ~= nil then
-        frame.title:SetText(finished and "SRT: Everyone is ready" or "SRT: Ready check done")
+        frame.title:SetText(finished and "ART: Everyone is ready" or "ART: Ready check done")
     else
-        frame.title:SetText(("SRT: Ready Check (%d s)"):format(max(0, floor(left + 0.5))))
+        frame.title:SetText(("ART: Ready Check (%d s)"):format(max(0, floor(left + 0.5))))
     end
 end
 
@@ -264,7 +264,7 @@ function ReadyWindow.Start(seconds)
     frame:Show()
     ReadyWindow.Refresh()
     updateTitle()
-    if not ticker then ticker = C_Timer.NewTicker(0.2, function() SRT:Call("ready window", updateTitle) end) end
+    if not ticker then ticker = C_Timer.NewTicker(0.2, function() ART:Call("ready window", updateTitle) end) end
 end
 
 -- The check ended: close soon (sooner when everyone was ready), but never while the
@@ -283,7 +283,7 @@ function ReadyWindow.Finish(allReady)
             ReadyWindow.Hide()
         end
     end
-    C_Timer.After(allReady and (SRT.db.raidcheck.closeAfter or CLOSE_ALL_READY) or CLOSE_NOT_READY, tryClose)
+    C_Timer.After(allReady and (ART.db.raidcheck.closeAfter or CLOSE_ALL_READY) or CLOSE_NOT_READY, tryClose)
 end
 
 function ReadyWindow.Hide()
@@ -301,8 +301,8 @@ function ReadyWindow.Frame() return frame end
 
 RaidCheck.OnChange(ReadyWindow.Refresh)
 
--- /srt rcwindow: open the window without a ready check (to look at the layout).
-SRT:AddSlashCommand("rcwindow", function()
+-- /art rcwindow: open the window without a ready check (to look at the layout).
+ART:AddSlashCommand("rcwindow", function()
     RaidCheck.Refresh()
     ReadyWindow.Start(30)
 end, "show the ready check window (test)")

@@ -1,12 +1,12 @@
 -- Main window: sidebar with every tool (grouped by when it is used), a header with the
 -- raid status and the leader's quick actions, and the selected page below it.
 -- Pages register themselves with Main.RegisterPage; the rest show "coming soon".
-local _, SRT = ...
+local _, ART = ...
 
-local Theme, W = SRT.Theme, SRT.Widgets
+local Theme, W = ART.Theme, ART.Widgets
 
 local Main = {}
-SRT.Main = Main
+ART.Main = Main
 
 local WIDTH, HEIGHT = 1000, 660
 local MIN_W, MIN_H, MAX_W, MAX_H = 820, 560, 1800, 1200
@@ -27,8 +27,8 @@ Main.NAV = {
 local COMING = {
     reminders = "Personal reminders that pop up at the right moment (\"Soulstone on pull\", \"Bring fire resistance\").",
     buffs = "Assign buffs (Fortitude, Mark of the Wild, Intellect...) per class and group, and post the assignments.",
-    summons = "See who is not in the raid's zone and post the summon list in raid chat (/srt summon).",
-    cooldowns = "Raid cooldowns per player. Depends on what WoW Forever lets addons see in combat: run /srt probe combat in a dungeon.",
+    summons = "See who is not in the raid's zone and post the summon list in raid chat (/art summon).",
+    cooldowns = "Raid cooldowns per player. Depends on what WoW Forever lets addons see in combat: run /art probe combat in a dungeon.",
     bres = "Battle res tracking. Depends on the combat probe as well.",
     attendance = "Who was in the raid, benched or late, with an export.",
     loot = "Loot council support (later).",
@@ -49,8 +49,8 @@ function Main.Frame() return frame end
 -- ---------------------------------------------------------------------------
 
 local function trackGroupStart()
-    if not SRT.db then return end
-    local w = SRT.db.window
+    if not ART.db then return end
+    local w = ART.db.window
     if IsInGroup() then
         w.groupSince = w.groupSince or time()
     else
@@ -61,11 +61,11 @@ end
 local function statusText()
     if not IsInGroup() then return "Raid tools", "Not in a group" end
     local online, total = 0, 0
-    for _, m in ipairs(SRT.Compat.GroupMembers()) do
+    for _, m in ipairs(ART.Compat.GroupMembers()) do
         total = total + 1
         if m.online then online = online + 1 end
     end
-    local inZone = SRT.Compat.InZoneCount()
+    local inZone = ART.Compat.InZoneCount()
     local title = IsInRaid() and "Tonight" or "Group"
     local inInstance = IsInInstance()
     if inInstance then
@@ -76,10 +76,10 @@ local function statusText()
         ("%d/%d online"):format(online, total),
         ("%d in zone"):format(inZone),
     }
-    local since = SRT.db.window.groupSince
+    local since = ART.db.window.groupSince
     if since then parts[#parts + 1] = (IsInRaid() and "raid started " or "group formed ") .. date("%H:%M", since) end
-    local breakLeft = SRT.Timers.Remaining("break")
-    if breakLeft then parts[#parts + 1] = "break " .. SRT.Timers.Format(breakLeft) .. " left" end
+    local breakLeft = ART.Timers.Remaining("break")
+    if breakLeft then parts[#parts + 1] = "break " .. ART.Timers.Format(breakLeft) .. " left" end
     return title, table.concat(parts, " \194\183 ")
 end
 
@@ -89,11 +89,11 @@ end
 
 local function savePosition()
     local point, _, rel, x, y = frame:GetPoint(1)
-    SRT.db.window.point, SRT.db.window.rel, SRT.db.window.x, SRT.db.window.y = point, rel, x, y
+    ART.db.window.point, ART.db.window.rel, ART.db.window.x, ART.db.window.y = point, rel, x, y
 end
 
 local function applyLook()
-    local s = SRT.db.settings
+    local s = ART.db.settings
     frame.bg:SetAlpha(s.bgAlpha or 0.97)
     frame.sidebarBg:SetAlpha(s.bgAlpha or 0.97)
     frame:SetScale(s.scale or 1)
@@ -108,15 +108,15 @@ local function buildSidebar()
     frame.sidebarBg:SetAllPoints()
     W.Line(side, "right", "line")
 
-    -- Logo: accent square, "SRT", "RAID TOOLS".
+    -- Logo: accent square, "ART", "RAID TOOLS".
     local logo = CreateFrame("Frame", nil, side)
     logo:SetPoint("TOPLEFT")
     logo:SetPoint("TOPRIGHT")
     logo:SetHeight(LOGO_H)
     W.Line(logo, "bottom", "line")
-    -- The SRT mark in the accent color (a plain accent square if the file does not load).
+    -- The ART mark in the accent color (a plain accent square if the file does not load).
     local square = logo:CreateTexture(nil, "ARTWORK")
-    local hasMark = square:SetTexture(SRT.MARK) ~= false
+    local hasMark = square:SetTexture(ART.MARK) ~= false
     if hasMark then
         square:SetSize(22, 22)
         square:SetPoint("LEFT", 14, 0)
@@ -126,11 +126,11 @@ local function buildSidebar()
         square:SetPoint("LEFT", 18, 0)
         W.OnAccent(function(r, g, b) square:SetColorTexture(r, g, b, 1) end)
     end
-    local srt = W.Text(logo, 4, "text")
-    srt:SetPoint("LEFT", square, "RIGHT", 8, 0)
-    srt:SetText("SRT")
+    local art = W.Text(logo, 4, "text")
+    art:SetPoint("LEFT", square, "RIGHT", 8, 0)
+    art:SetText("ART")
     local sub = W.Text(logo, -1, "textFaint")
-    sub:SetPoint("LEFT", srt, "RIGHT", 8, 0)
+    sub:SetPoint("LEFT", art, "RIGHT", 8, 0)
     sub:SetText("RAID TOOLS")
 
     -- Footer: version and guild.
@@ -226,17 +226,17 @@ local function buildHeader()
 
     -- Quick actions, right to left.
     header.note = W.Button(header, "Send note", "accent", function()
-        local n = SRT.Notes.Selected()
-        if n then SRT.Notes.Send(n.id) else Main.Show("notes") end
+        local n = ART.Notes.Selected()
+        if n then ART.Notes.Send(n.id) else Main.Show("notes") end
     end)
     header.note:SetPoint("RIGHT", -40, -2)
     header.breakBtn = W.Button(header, "Break 10 min", nil, function()
-        if SRT.Timers.Remaining("break") then SRT.Timers.Break(0) else SRT.Timers.Break(10) end
+        if ART.Timers.Remaining("break") then ART.Timers.Break(0) else ART.Timers.Break(10) end
     end)
     header.breakBtn:SetPoint("RIGHT", header.note, "LEFT", -10, 0)
-    header.pull = W.Button(header, "Pull 10s", nil, function() SRT.Timers.Pull(10) end)
+    header.pull = W.Button(header, "Pull 10s", nil, function() ART.Timers.Pull(10) end)
     header.pull:SetPoint("RIGHT", header.breakBtn, "LEFT", -10, 0)
-    header.rc = W.Button(header, "Ready check", nil, function() SRT.Timers.ReadyCheck() end)
+    header.rc = W.Button(header, "Ready check", nil, function() ART.Timers.ReadyCheck() end)
     header.rc:SetPoint("RIGHT", header.pull, "LEFT", -10, 0)
 end
 
@@ -245,15 +245,15 @@ local function refreshHeader()
     header.title:SetText(title)
     header.sub:SetText(sub)
     local lead -- disabled reason for the leader buttons, nil when allowed
-    if not SRT.Timers.CanLead() then lead = "Only the raid leader or an assistant can do this." end
+    if not ART.Timers.CanLead() then lead = "Only the raid leader or an assistant can do this." end
     header.rc:SetDisabled(lead or (not IsInGroup() and "Join a group first.") or nil)
     header.pull:SetDisabled(lead)
     header.breakBtn:SetDisabled(lead)
-    header.breakBtn:SetLabel(SRT.Timers.Remaining("break") and "End break" or "Break 10 min")
-    local selected = SRT.Notes.Selected()
+    header.breakBtn:SetLabel(ART.Timers.Remaining("break") and "End break" or "Break 10 min")
+    local selected = ART.Notes.Selected()
     header.note:SetDisabled(lead or (not selected and "No note yet: write one under Notes.") or nil)
     header.note.tooltip = selected and ("Sends \"%s\" (the note selected under Notes)"):format(selected.title) or nil
-    frame.footerText:SetText(("v%s%s"):format(tostring(SRT.version), SRT.Compat.GuildName() and (" \194\183 " .. SRT.Compat.GuildName()) or ""))
+    frame.footerText:SetText(("v%s%s"):format(tostring(ART.version), ART.Compat.GuildName() and (" \194\183 " .. ART.Compat.GuildName()) or ""))
 end
 
 local function comingSoon(id, label)
@@ -287,13 +287,13 @@ function Main.Show(id)
             page.refresh = page.build(page.frame)
         end
         page.frame:Show()
-        if page.refresh then SRT:Call("page " .. id, page.refresh) end
+        if page.refresh then ART:Call("page " .. id, page.refresh) end
     else
         placeholders[id] = placeholders[id] or comingSoon(id, labelFor(id))
         placeholders[id]:Show()
     end
     current = id
-    SRT.db.window.page = id
+    ART.db.window.page = id
     for _, b in ipairs(navButtons) do
         local on = b.id == id
         b.bg:SetShown(on)
@@ -308,7 +308,7 @@ function Main.Refresh()
     if not frame or not frame:IsShown() then return end
     refreshHeader()
     local page = current and pages[current]
-    if page and page.refresh then SRT:Call("page " .. current, page.refresh) end
+    if page and page.refresh then ART:Call("page " .. current, page.refresh) end
 end
 
 -- Resize grip in the bottom right corner: three steps of small squares.
@@ -342,16 +342,16 @@ local function buildGrip()
     end)
     grip:SetScript("OnMouseUp", function()
         frame:StopMovingOrSizing()
-        SRT.db.window.w, SRT.db.window.h = floor(frame:GetWidth() + 0.5), floor(frame:GetHeight() + 0.5)
+        ART.db.window.w, ART.db.window.h = floor(frame:GetWidth() + 0.5), floor(frame:GetHeight() + 0.5)
         savePosition() -- sizing re-anchors the frame
     end)
 end
 
 local statusTicker
 local function build()
-    frame = CreateFrame("Frame", "SlaughterRaidToolsFrame", UIParent)
-    tinsert(UISpecialFrames, "SlaughterRaidToolsFrame") -- ESC closes it
-    local saved = SRT.db.window
+    frame = CreateFrame("Frame", "AllemanoRaidToolsFrame", UIParent)
+    tinsert(UISpecialFrames, "AllemanoRaidToolsFrame") -- ESC closes it
+    local saved = ART.db.window
     frame:SetSize(min(MAX_W, max(MIN_W, saved.w or WIDTH)), min(MAX_H, max(MIN_H, saved.h or HEIGHT)))
     frame:SetResizable(true)
     if frame.SetResizeBounds then
@@ -368,7 +368,7 @@ local function build()
     frame.bg = W.Fill(frame, "window", 1)
     frame.bg:SetAllPoints()
     W.Border(frame, "line")
-    local w = SRT.db.window
+    local w = ART.db.window
     if w.point then
         frame:SetPoint(w.point, UIParent, w.rel or w.point, w.x or 0, w.y or 0)
     else
@@ -384,7 +384,7 @@ local function build()
     frame:SetScript("OnShow", function()
         refreshHeader()
         -- The subtitle has live parts (in zone, break left): refresh while open only.
-        statusTicker = statusTicker or C_Timer.NewTicker(1, function() SRT:Call("status", refreshHeader) end)
+        statusTicker = statusTicker or C_Timer.NewTicker(1, function() ART:Call("status", refreshHeader) end)
     end)
     frame:SetScript("OnHide", function()
         if statusTicker then statusTicker:Cancel() statusTicker = nil end
@@ -395,23 +395,23 @@ local function build()
 end
 
 function Main.Toggle(id)
-    if not SRT.db then return end
+    if not ART.db then return end
     if not frame then
         -- A failed build must not leave a half-made (invisible) window behind.
         local ok, err = pcall(build)
         if not ok then
             if frame then frame:Hide() end
             frame = nil
-            SRT:RecordError("window build", err)
+            ART:RecordError("window build", err)
             return
         end
     end
     if frame:IsShown() and not id then frame:Hide() return end
-    Main.Show(id or SRT.db.window.page or "home")
+    Main.Show(id or ART.db.window.page or "home")
 end
 
 function Main.ResetPosition()
-    local w = SRT.db.window
+    local w = ART.db.window
     w.point, w.rel, w.x, w.y, w.w, w.h = nil, nil, nil, nil, nil, nil
     if frame then
         frame:SetSize(WIDTH, HEIGHT)
@@ -420,7 +420,7 @@ function Main.ResetPosition()
     end
 end
 
-SRT:OnSettingChanged(function(key)
+ART:OnSettingChanged(function(key)
     if frame and (key == "bgAlpha" or key == "scale") then applyLook() end
 end)
 
@@ -428,8 +428,8 @@ local function onGroup()
     trackGroupStart()
     Main.Refresh()
 end
-SRT:RegisterEvent("GROUP_ROSTER_UPDATE", onGroup)
-SRT:RegisterEvent("PARTY_LEADER_CHANGED", onGroup)
-SRT:RegisterEvent("PLAYER_ENTERING_WORLD", onGroup)
-SRT:RegisterEvent("ZONE_CHANGED_NEW_AREA", function() Main.Refresh() end)
-SRT.Notes.OnChange(function() if frame and frame:IsShown() then refreshHeader() end end)
+ART:RegisterEvent("GROUP_ROSTER_UPDATE", onGroup)
+ART:RegisterEvent("PARTY_LEADER_CHANGED", onGroup)
+ART:RegisterEvent("PLAYER_ENTERING_WORLD", onGroup)
+ART:RegisterEvent("ZONE_CHANGED_NEW_AREA", function() Main.Refresh() end)
+ART.Notes.OnChange(function() if frame and frame:IsShown() then refreshHeader() end end)

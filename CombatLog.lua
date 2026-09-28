@@ -1,14 +1,14 @@
 -- Auto logging: starts the combat log (/combatlog) when entering a raid instance (and
--- optionally dungeons) and stops it when leaving, but only a log SRT started itself.
+-- optionally dungeons) and stops it when leaving, but only a log ART started itself.
 -- Advanced combat logging (needed by Warcraft Logs) is switched on with it.
-local _, SRT = ...
+local _, ART = ...
 
 local CombatLog = {}
-SRT.CombatLog = CombatLog
+ART.CombatLog = CombatLog
 
-local startedBySRT = false
+local startedByART = false
 
-local function settings() return SRT.db.settings end
+local function settings() return ART.db.settings end
 
 -- Is the combat log running? (C_ChatInfo on Forever, LoggingCombat() on older clients.)
 function CombatLog.IsLogging()
@@ -35,7 +35,7 @@ function CombatLog.Set(on)
 end
 
 local function say(msg)
-    if settings().logAnnounce then SRT:Print(msg) end
+    if settings().logAnnounce then ART:Print(msg) end
 end
 
 -- The instance we are in counts for logging: raids, and dungeons when chosen.
@@ -52,32 +52,32 @@ local function check()
     if wantedHere() then
         if not CombatLog.IsLogging() then
             if CombatLog.Set(true) then
-                startedBySRT = true
+                startedByART = true
                 say(("Combat log started (%s). Logs\\WoWCombatLog*.txt"):format(name or "instance"))
             else
-                SRT:Print("Could not start the combat log. Type /combatlog yourself.")
+                ART:Print("Could not start the combat log. Type /combatlog yourself.")
             end
         end
-    elseif startedBySRT and CombatLog.IsLogging() then
+    elseif startedByART and CombatLog.IsLogging() then
         if CombatLog.Set(false) then say("Combat log stopped.") end
-        startedBySRT = false
+        startedByART = false
     end
 end
 
 -- The instance type is only reliable a moment after the loading screen.
-local function later() C_Timer.After(2, function() SRT:Call("auto log", check) end) end
-SRT:RegisterEvent("PLAYER_ENTERING_WORLD", later)
-SRT:RegisterEvent("ZONE_CHANGED_NEW_AREA", later)
+local function later() C_Timer.After(2, function() ART:Call("auto log", check) end) end
+ART:RegisterEvent("PLAYER_ENTERING_WORLD", later)
+ART:RegisterEvent("ZONE_CHANGED_NEW_AREA", later)
 
 function CombatLog.Toggle()
     local on = not CombatLog.IsLogging()
     if CombatLog.Set(on) then
-        startedBySRT = false -- a manual choice is left alone
-        SRT:Print(on and "Combat log started." or "Combat log stopped.")
+        startedByART = false -- a manual choice is left alone
+        ART:Print(on and "Combat log started." or "Combat log stopped.")
     else
-        SRT:Print("The game refused. Type /combatlog yourself.")
+        ART:Print("The game refused. Type /combatlog yourself.")
     end
-    if SRT.Main then SRT.Main.Refresh() end
+    if ART.Main then ART.Main.Refresh() end
 end
 
-SRT:AddSlashCommand("log", function() CombatLog.Toggle() end, "start or stop the combat log")
+ART:AddSlashCommand("log", function() CombatLog.Toggle() end, "start or stop the combat log")

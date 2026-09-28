@@ -1,9 +1,9 @@
 -- Timers page: quick pull / break buttons, own timers saved as presets ("Buffs 5 min"),
 -- and everything running with its time left and Stop.
-local _, SRT = ...
+local _, ART = ...
 
-local W = SRT.Widgets
-local Main, Timers = SRT.Main, SRT.Timers
+local W = ART.Widgets
+local Main, Timers = ART.Main, ART.Timers
 
 local PAD, ROW_H = 26, 30
 
@@ -40,7 +40,7 @@ Main.RegisterPage("timers", function(page)
     ownHead:SetPoint("TOPLEFT", quickRow, "BOTTOMLEFT", 0, -24)
     local ownHelp = W.Text(page, -2, "textFaint")
     ownHelp:SetPoint("TOPLEFT", ownHead, "BOTTOMLEFT", 0, -6)
-    ownHelp:SetText("Click one to start it. As raid leader or assistant it shows for everyone with SRT; otherwise only for you.")
+    ownHelp:SetText("Click one to start it. As raid leader or assistant it shows for everyone with ART; otherwise only for you.")
     local nameEdit = W.EditBox(page, "Name, e.g. Buffs", 26)
     nameEdit:SetWidth(170)
     nameEdit:SetMaxLetters(30)
@@ -57,7 +57,7 @@ Main.RegisterPage("timers", function(page)
             minEdit:ClearFocus()
             refresh()
         else
-            SRT:Print("Give the timer a name and the minutes (e.g. Buffs, 5).")
+            ART:Print("Give the timer a name and the minutes (e.g. Buffs, 5).")
         end
     end, 26)
     add:SetPoint("LEFT", minEdit, "RIGHT", 6, 0)
@@ -140,7 +140,7 @@ Main.RegisterPage("timers", function(page)
     -- The time left counts down while the page is open.
     local ticker
     page:SetScript("OnShow", function()
-        ticker = ticker or C_Timer.NewTicker(1, function() SRT:Call("timers page", refreshRunning) end)
+        ticker = ticker or C_Timer.NewTicker(1, function() ART:Call("timers page", refreshRunning) end)
     end)
     page:SetScript("OnHide", function()
         if ticker then ticker:Cancel() ticker = nil end

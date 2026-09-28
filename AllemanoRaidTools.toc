@@ -1,9 +1,10 @@
 ## Interface: 16001
-## Title: SlaughterRaidTools
-## Notes: Raid tools for WoW Forever: notes, invites, timers, markers, summons and raid checks
-## Version: 0.14.0
-## SavedVariables: SlaughterRaidToolsDB
-## IconTexture: Interface\AddOns\SlaughterRaidTools\Media\SRT_icon_64
+## Title: Allemano Raid Tools
+## Notes: Raid tools for WoW Forever: notes, invites, timers, markers, summons and raid checks. Part of Allemano Addons.
+## Author: Allemano
+## Version: 0.15.0
+## SavedVariables: AllemanoRaidToolsDB
+## IconTexture: Interface\AddOns\AllemanoRaidTools\Media\ART_icon_64
 
 Core.lua
 Compat.lua

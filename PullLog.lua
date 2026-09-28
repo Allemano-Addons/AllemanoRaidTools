@@ -1,10 +1,10 @@
 -- Pull log: every boss pull (ENCOUNTER_START / ENCOUNTER_END) with the boss, combat time,
 -- kill or wipe, and the boss's health when it ended. Pulls are grouped by raid night
 -- (a night runs until 06:00 the next morning).
-local _, SRT = ...
+local _, ART = ...
 
 local PullLog = {}
-SRT.PullLog = PullLog
+ART.PullLog = PullLog
 
 local MAX_PULLS = 500
 local NIGHT_SHIFT = 6 * 3600 -- 01:30 still belongs to the evening before
@@ -12,10 +12,10 @@ local NIGHT_SHIFT = 6 * 3600 -- 01:30 still belongs to the evening before
 local listeners = {}
 function PullLog.OnChange(fn) listeners[#listeners + 1] = fn end
 local function changed()
-    for _, fn in ipairs(listeners) do SRT:Call("pull log listener", fn) end
+    for _, fn in ipairs(listeners) do ART:Call("pull log listener", fn) end
 end
 
-local function db() return SRT.db.pulls end
+local function db() return ART.db.pulls end
 
 function PullLog.NightOf(t) return date("%Y-%m-%d", (t or time()) - NIGHT_SHIFT) end
 
@@ -62,21 +62,21 @@ end
 
 function PullLog.Current() return current end
 
-SRT:RegisterEvent("ENCOUNTER_START", function(_, encounterID, name, difficultyID, groupSize)
+ART:RegisterEvent("ENCOUNTER_START", function(_, encounterID, name, difficultyID, groupSize)
     current = {
         encounterID = safe(encounterID), name = safe(name) or "Unknown boss", difficulty = safe(difficultyID),
         size = safe(groupSize), startTime = GetTime(), start = time(), zone = GetInstanceInfo(),
     }
     sample()
-    if not ticker then ticker = C_Timer.NewTicker(1, function() SRT:Call("pull log", sample) end) end
+    if not ticker then ticker = C_Timer.NewTicker(1, function() ART:Call("pull log", sample) end) end
     changed()
 end)
 
-SRT:RegisterEvent("UNIT_HEALTH", function(_, unit)
+ART:RegisterEvent("UNIT_HEALTH", function(_, unit)
     if current and unit == "boss1" then sample() end
 end)
 
-SRT:RegisterEvent("ENCOUNTER_END", function(_, encounterID, name, difficultyID, groupSize, success)
+ART:RegisterEvent("ENCOUNTER_END", function(_, encounterID, name, difficultyID, groupSize, success)
     if ticker then
         ticker:Cancel()
         ticker = nil
@@ -100,7 +100,7 @@ SRT:RegisterEvent("ENCOUNTER_END", function(_, encounterID, name, difficultyID, 
     while #list > MAX_PULLS do tremove(list, 1) end
     changed()
     local result = kill and "Kill" or ("Wipe" .. (entry.pct and (" at %.1f%%"):format(entry.pct) or ""))
-    SRT:Print(("%s #%d: %s after %s."):format(entry.boss, PullLog.PullNumber(entry), result, PullLog.FormatTime(entry.duration)))
+    ART:Print(("%s #%d: %s after %s."):format(entry.boss, PullLog.PullNumber(entry), result, PullLog.FormatTime(entry.duration)))
 end)
 
 -- ---------------------------------------------------------------------------
@@ -182,4 +182,4 @@ function PullLog.DeleteNight(night)
     changed()
 end
 
-SRT:AddSlashCommand("pulls", function() SRT.Main.Toggle("pulllog") end, "open the pull log")
+ART:AddSlashCommand("pulls", function() ART.Main.Toggle("pulllog") end, "open the pull log")

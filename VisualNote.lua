@@ -1,5 +1,5 @@
 -- Visual note: a drawing (pen, lines, arrows, raid icons, text) on a background (none, a
--- game map, or a picture from SlaughterRaidTools\Images), shared with the raid.
+-- game map, or a picture from AllemanoRaidTools\Images), shared with the raid.
 -- Kept light on purpose: strokes are simplified and sent as 4 characters per point, the
 -- whole note is a few kB like a text note; drawing happens only while a window shows it,
 -- with a cap on how many lines are drawn.
@@ -10,10 +10,10 @@
 --   { k = "l" / "a", c, w, x1, y1, x2, y2 }            line / arrow
 --   { k = "i", n = 1..8, x, y }                        raid icon
 --   { k = "t", c, x, y, s }                            text
-local _, SRT = ...
+local _, ART = ...
 
 local VisualNote = {}
-SRT.VisualNote = VisualNote
+ART.VisualNote = VisualNote
 
 VisualNote.MAX = 4095
 VisualNote.MAX_SEGMENTS = 4000   -- line pieces drawn per canvas at most
@@ -21,12 +21,12 @@ VisualNote.MAX_POINTS = 200      -- per stroke
 VisualNote.MAX_BYTES = 12000     -- a shared note at most
 VisualNote.COLORS = { "E6E8EB", "E0564F", "E8A33D", "F2D64B", "3FC77F", "3FC7EB", "B57EDC", "111418" }
 VisualNote.WIDTHS = { 2, 4, 7 }
-VisualNote.IMAGE_PATH = "Interface\\AddOns\\SlaughterRaidTools\\Images\\"
+VisualNote.IMAGE_PATH = "Interface\\AddOns\\AllemanoRaidTools\\Images\\"
 
 local listeners = {}
 function VisualNote.OnChange(fn) listeners[#listeners + 1] = fn end
 local function changed()
-    for _, fn in ipairs(listeners) do SRT:Call("visual note listener", fn) end
+    for _, fn in ipairs(listeners) do ART:Call("visual note listener", fn) end
 end
 VisualNote.Changed = changed
 
@@ -44,7 +44,7 @@ local function clampCoord(v) return max(0, min(VisualNote.MAX, floor(v + 0.5))) 
 function VisualNote.Encode(note)
     -- Fields are separated by "^" (tabs and newlines may not survive addon messages).
     local out = { "1", note.bg.kind, tostring(note.bg.ref or ""):gsub("[^%w_%-]", ""),
-        SRT.Notes.escape((note.title or ""):gsub("%^", "")) }
+        ART.Notes.escape((note.title or ""):gsub("%^", "")) }
     local items = {}
     for _, it in ipairs(note.items) do
         if it.k == "p" then
@@ -58,7 +58,7 @@ function VisualNote.Encode(note)
         elseif it.k == "i" then
             items[#items + 1] = "i" .. c1(it.n - 1) .. c2(clampCoord(it.x)) .. c2(clampCoord(it.y))
         elseif it.k == "t" then
-            local s = SRT.Notes.escape(it.s or ""):sub(1, 200)
+            local s = ART.Notes.escape(it.s or ""):sub(1, 200)
             items[#items + 1] = "t" .. c1(it.c - 1) .. c2(clampCoord(it.x)) .. c2(clampCoord(it.y)) .. c2(#s) .. s
         end
     end
@@ -70,7 +70,7 @@ end
 function VisualNote.Decode(data)
     local version, kind, ref, title, body = (data or ""):match("^(%d+)%^(%a+)%^([^%^]*)%^([^%^]*)%^(.*)$")
     if version ~= "1" then return nil end
-    local note = { title = SRT.Notes.unescape(title), bg = { kind = kind, ref = tonumber(ref) or (ref ~= "" and ref or nil) }, items = {} }
+    local note = { title = ART.Notes.unescape(title), bg = { kind = kind, ref = tonumber(ref) or (ref ~= "" and ref or nil) }, items = {} }
     local pos, len = 1, #body
     local function take(n)
         if pos + n - 1 > len then error("short") end
@@ -94,7 +94,7 @@ function VisualNote.Decode(data)
                 note.items[#note.items + 1] = { k = "i", n = n1() + 1, x = n2(), y = n2() }
             elseif k == "t" then
                 local it = { k = "t", c = n1() + 1, x = n2(), y = n2() }
-                it.s = SRT.Notes.unescape(take(n2()))
+                it.s = ART.Notes.unescape(take(n2()))
                 note.items[#note.items + 1] = it
             else
                 error("bad item")
@@ -165,7 +165,7 @@ end
 -- Saved notes (the drawer's library) and the received one
 -- ---------------------------------------------------------------------------
 
-local function db() return SRT.db.visual end
+local function db() return ART.db.visual end
 
 function VisualNote.New()
     return { title = "", bg = { kind = "none" }, items = {} }
@@ -215,40 +215,40 @@ function VisualNote.Received() return db().received and VisualNote.Decode(db().r
 -- ---------------------------------------------------------------------------
 
 local function accepted(sender)
-    local unit = SRT.Compat.UnitForName(sender)
+    local unit = ART.Compat.UnitForName(sender)
     if not unit then return false end
-    if SRT.db.settings.vnAcceptEveryone then return true end
-    return SRT.Compat.IsLeaderOrAssist(unit)
+    if ART.db.settings.vnAcceptEveryone then return true end
+    return ART.Compat.IsLeaderOrAssist(unit)
 end
 
 -- Sends the draft to the group; solo it is only shown to you.
 function VisualNote.Send()
     local data = VisualNote.Encode(VisualNote.Draft())
     if #data > VisualNote.MAX_BYTES then
-        SRT:Print(("The drawing is too big to share (%d of %d bytes): remove some strokes."):format(#data, VisualNote.MAX_BYTES))
+        ART:Print(("The drawing is too big to share (%d of %d bytes): remove some strokes."):format(#data, VisualNote.MAX_BYTES))
         return false
     end
-    db().received = { data = data, sender = SRT.Compat.PlayerName(), at = time() }
+    db().received = { data = data, sender = ART.Compat.PlayerName(), at = time() }
     changed()
-    if SRT.VisualViewer then SRT.VisualViewer.Show() end
+    if ART.VisualViewer then ART.VisualViewer.Show() end
     if not IsInGroup() then
-        SRT:Print("Not in a group: the visual note is only shown to you.")
+        ART:Print("Not in a group: the visual note is only shown to you.")
         return true
     end
-    local parts = SRT.Comm.Send("VN", data)
-    SRT:Print(("Sharing the visual note (%d bytes, %d part%s)."):format(#data, parts or 0, parts == 1 and "" or "s"))
-    if not SRT.Compat.IsLeaderOrAssist() then
-        SRT:Print("Only raiders who accept visual notes from everyone will see it (you are not leader or assistant).")
+    local parts = ART.Comm.Send("VN", data)
+    ART:Print(("Sharing the visual note (%d bytes, %d part%s)."):format(#data, parts or 0, parts == 1 and "" or "s"))
+    if not ART.Compat.IsLeaderOrAssist() then
+        ART:Print("Only raiders who accept visual notes from everyone will see it (you are not leader or assistant).")
     end
     return true
 end
 
-SRT.Comm.Register("VN", function(sender, data)
+ART.Comm.Register("VN", function(sender, data)
     if not accepted(sender) then return end
     if #data > VisualNote.MAX_BYTES or not VisualNote.Decode(data) then return end
     db().received = { data = data, sender = sender, at = time() }
     changed()
-    if SRT.db.settings.vnAutoShow and SRT.VisualViewer then SRT.VisualViewer.Show() end
+    if ART.db.settings.vnAutoShow and ART.VisualViewer then ART.VisualViewer.Show() end
 end)
 
 -- ---------------------------------------------------------------------------
@@ -256,7 +256,7 @@ end)
 -- ---------------------------------------------------------------------------
 
 local function hexColor(i)
-    return SRT.Theme.Hex(VisualNote.COLORS[i] or VisualNote.COLORS[1])
+    return ART.Theme.Hex(VisualNote.COLORS[i] or VisualNote.COLORS[1])
 end
 
 -- A canvas: canvas.layer (frame the items are drawn on), pools of lines/icons/texts/tiles.
@@ -264,11 +264,11 @@ function VisualNote.CreateCanvas(parent)
     local c = CreateFrame("Frame", nil, parent)
     c.bg = c:CreateTexture(nil, "BACKGROUND")
     c.bg:SetAllPoints()
-    c.bg:SetColorTexture(SRT.Theme:Color("sidebar"))
+    c.bg:SetColorTexture(ART.Theme:Color("sidebar"))
     c.image = c:CreateTexture(nil, "BORDER")
     c.image:SetAllPoints()
     c.image:Hide()
-    c.missing = SRT.Widgets.Text(c, -1, "textFaint")
+    c.missing = ART.Widgets.Text(c, -1, "textFaint")
     c.missing:SetPoint("BOTTOM", 0, 8)
     c.tiles, c.lines, c.icons, c.texts, c.dots = {}, {}, {}, {}, {}
     c.used = { lines = 0, icons = 0, texts = 0, dots = 0 }
@@ -415,7 +415,7 @@ function VisualNote.Render(c, note, skip)
     elseif bg.kind == "image" and bg.ref then
         local ok = c.image:SetTexture(VisualNote.IMAGE_PATH .. bg.ref)
         if ok == false then
-            c.missing:SetText(("Picture \"%s\" is missing: put %s.tga in SlaughterRaidTools\\Images and restart WoW."):format(bg.ref, bg.ref))
+            c.missing:SetText(("Picture \"%s\" is missing: put %s.tga in AllemanoRaidTools\\Images and restart WoW."):format(bg.ref, bg.ref))
         else
             c.image:Show()
         end
@@ -460,7 +460,7 @@ function VisualNote.Render(c, note, skip)
             t:SetPoint("CENTER", c, "TOPLEFT", it.x * sx, -it.y * sy)
         elseif it.k == "t" then
             local fs = takeText(c)
-            fs:SetFont(SRT.Theme:FontPath(), max(8, floor(14 * scale + 0.5)), "OUTLINE")
+            fs:SetFont(ART.Theme:FontPath(), max(8, floor(14 * scale + 0.5)), "OUTLINE")
             fs:SetTextColor(r, g, b)
             fs:SetText(it.s or "")
             fs:ClearAllPoints()
@@ -537,4 +537,4 @@ function VisualNote.HitTest(note, x, y, radius)
     end
 end
 
-SRT:AddSlashCommand("vn", function() if SRT.VisualViewer then SRT.VisualViewer.Toggle() end end, "show or hide the visual note")
+ART:AddSlashCommand("vn", function() if ART.VisualViewer then ART.VisualViewer.Toggle() end end, "show or hide the visual note")

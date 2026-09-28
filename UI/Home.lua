@@ -1,9 +1,9 @@
 -- Home: one card per tool with tonight's summary. Cards fill in as the tools are built;
 -- until then they say what they will show.
-local _, SRT = ...
+local _, ART = ...
 
-local Theme, W = SRT.Theme, SRT.Widgets
-local Main = SRT.Main
+local Theme, W = ART.Theme, ART.Widgets
+local Main = ART.Main
 
 local PAD, GAP = 26, 16
 
@@ -40,7 +40,7 @@ Main.RegisterPage("home", function(page)
     readyMissing:SetPoint("RIGHT", -18, 0)
 
     local function refreshReadiness()
-        local result = SRT.RaidCheck.Last()
+        local result = ART.RaidCheck.Last()
         readiness.body:SetShown(not result)
         if not result then
             readiness.body:SetText("Flasks, food, buffs and durability for everyone, with who is missing what. "
@@ -68,24 +68,24 @@ Main.RegisterPage("home", function(page)
                 b.fill:SetShown(frac > 0)
             end
         end
-        local missing = SRT.RaidCheck.Missing(result)
+        local missing = ART.RaidCheck.Missing(result)
         readyMissing:SetText(missing[1] and ("Missing %s: %s"):format(missing[1].cat.name, table.concat(missing[1].names, ", ")) or "")
     end
-    SRT.RaidCheck.OnChange(function() if page:IsShown() then refreshReadiness() end end)
+    ART.RaidCheck.OnChange(function() if page:IsShown() then refreshReadiness() end end)
 
     local note = W.Card(page, "Note", "Edit note", go("notes"))
     note:SetPoint("TOPLEFT", page, "TOP", GAP / 2, -24)
     note:SetPoint("RIGHT", -PAD, 0)
     note:SetHeight(190)
-    local resend = W.Button(note, "Resend", nil, function() SRT.Notes.Resend() end, 26)
+    local resend = W.Button(note, "Resend", nil, function() ART.Notes.Resend() end, 26)
     resend:SetPoint("BOTTOMLEFT", 18, 16)
     local postNote = W.Button(note, "Post in raid chat", nil, function()
-        local a = SRT.Notes.Active()
-        if a then SRT.Notes.PostToChat(a.text) end
+        local a = ART.Notes.Active()
+        if a then ART.Notes.PostToChat(a.text) end
     end, 26)
     postNote:SetPoint("LEFT", resend, "RIGHT", 8, 0)
 
-    -- "Name, Name (no SRT)" for the missing list, at most `limit` names.
+    -- "Name, Name (no ART)" for the missing list, at most `limit` names.
     local function missingText(missing, limit)
         local parts = {}
         for i, m in ipairs(missing) do
@@ -94,19 +94,19 @@ Main.RegisterPage("home", function(page)
                 break
             end
             local color = m.offline and "|cff7c858f" or "|cffe8a33d"
-            parts[#parts + 1] = color .. m.name .. "|r" .. (m.offline and " (offline)" or m.noSRT and " (no SRT)" or "")
+            parts[#parts + 1] = color .. m.name .. "|r" .. (m.offline and " (offline)" or m.noART and " (no ART)" or "")
         end
         return table.concat(parts, ", ")
     end
 
     local function refreshNote()
-        local a, s = SRT.Notes.Active(), SRT.Notes.Status()
+        local a, s = ART.Notes.Active(), ART.Notes.Status()
         local lines = {}
         if not a then
             lines[1] = "No note yet. Write one under Notes and send it to the raid."
         else
             lines[1] = "|cffe6e8eb" .. (a.title ~= "" and a.title or "Note") .. "|r"
-            if s and a.hash == SRT.db.lastSent.hash then
+            if s and a.hash == ART.db.lastSent.hash then
                 lines[2] = ("Sent %s \194\183 %d of %d have it"):format(date("%H:%M", s.at), s.have, s.total)
                 if #s.missing > 0 then lines[3] = "Missing: " .. missingText(s.missing, 6) end
             else
@@ -114,7 +114,7 @@ Main.RegisterPage("home", function(page)
             end
         end
         note.body:SetText(table.concat(lines, "\n"))
-        local canSend = SRT.Notes.CanSend()
+        local canSend = ART.Notes.CanSend()
         resend:SetShown(a ~= nil and canSend)
         postNote:SetShown(a ~= nil and IsInGroup())
         if not resend:IsShown() then
@@ -125,7 +125,7 @@ Main.RegisterPage("home", function(page)
             postNote:SetPoint("LEFT", resend, "RIGHT", 8, 0)
         end
     end
-    SRT.Notes.OnChange(function() if page:IsShown() then refreshNote() end end)
+    ART.Notes.OnChange(function() if page:IsShown() then refreshNote() end end)
 
     local pulls = W.Card(page, "Pulls tonight", "Pull log", go("pulllog"))
     pulls:SetPoint("TOPLEFT", readiness, "BOTTOMLEFT", 0, -GAP)
@@ -150,8 +150,8 @@ Main.RegisterPage("home", function(page)
         pullRows[i] = r
     end
     local function refreshPulls()
-        local list, night = SRT.PullLog.Pulls()
-        if night ~= SRT.PullLog.NightOf() then list = {} end
+        local list, night = ART.PullLog.Pulls()
+        if night ~= ART.PullLog.NightOf() then list = {} end
         pulls.body:SetShown(#list == 0)
         pulls.body:SetText("No boss pulled tonight. Every pull is logged by itself: boss, time in combat, kill or wipe with the boss's health.")
         for i, r in ipairs(pullRows) do
@@ -160,12 +160,12 @@ Main.RegisterPage("home", function(page)
             if p then
                 r.num:SetText("#" .. (#list - i + 1))
                 r.boss:SetText(p.boss)
-                r.time:SetText(SRT.PullLog.FormatTime(p.duration))
-                r.result:SetText(SRT.PullLog.ResultText(p))
+                r.time:SetText(ART.PullLog.FormatTime(p.duration))
+                r.result:SetText(ART.PullLog.ResultText(p))
             end
         end
     end
-    SRT.PullLog.OnChange(function() if page:IsShown() then refreshPulls() end end)
+    ART.PullLog.OnChange(function() if page:IsShown() then refreshPulls() end end)
 
     local attendance = W.Card(page, "Attendance", "Export", go("attendance"))
     attendance:SetPoint("TOPLEFT", note, "BOTTOMLEFT", 0, -GAP)
@@ -180,9 +180,9 @@ Main.RegisterPage("home", function(page)
     cds.body:ClearAllPoints()
     cds.body:SetPoint("TOPLEFT", 18, -40)
     cds.body:SetPoint("RIGHT", -150, 0)
-    cds.body:SetTextColor(SRT.Theme:Color("text"))
+    cds.body:SetTextColor(ART.Theme:Color("text"))
     local probeBtn = W.Button(cds, "Run probe", nil, function()
-        SRT.Probe.ArmCombat()
+        ART.Probe.ArmCombat()
         Main.Refresh()
     end)
     probeBtn:SetPoint("RIGHT", -18, 0)
@@ -191,7 +191,7 @@ Main.RegisterPage("home", function(page)
         refreshNote()
         refreshReadiness()
         refreshPulls()
-        local state = SRT.Probe.CombatState()
+        local state = ART.Probe.CombatState()
         if state == "armed" then
             cds.body:SetText("Combat probe is armed: fight something in a dungeon, then /reload and send the SavedVariables file.")
         elseif state == "done" then

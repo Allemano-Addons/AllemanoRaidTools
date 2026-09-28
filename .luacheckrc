@@ -3,15 +3,15 @@ max_line_length = false
 self = false
 exclude_files = { "Tests/**" }
 
--- The only globals SlaughterRaidTools may write.
+-- The only globals AllemanoRaidTools may write.
 globals = {
-    "SlaughterRaidToolsDB",
-    "SLASH_SLAUGHTERRAIDTOOLS1", "SLASH_SLAUGHTERRAIDTOOLS2", "SlashCmdList",
-    "SlaughterRaidToolsFrame", -- named only so ESC closes it (UISpecialFrames)
-    "SlaughterRaidToolsMarkButton", "BINDING_HEADER_SLAUGHTERRAIDTOOLS", -- key binding (Marks.lua, Bindings.xml)
+    "AllemanoRaidToolsDB",
+    "SLASH_ALLEMANORAIDTOOLS1", "SLASH_ALLEMANORAIDTOOLS2", "SlashCmdList",
+    "AllemanoRaidToolsFrame", -- named only so ESC closes it (UISpecialFrames)
+    "AllemanoRaidToolsMarkButton", "BINDING_HEADER_ALLEMANORAIDTOOLS", -- key binding (Marks.lua, Bindings.xml)
 }
 
--- WoW API used by SlaughterRaidTools (read-only). Extend as new APIs are used.
+-- WoW API used by AllemanoRaidTools (read-only). Extend as new APIs are used.
 read_globals = {
     "_G",
     "strjoin", "strsplit", "strtrim", "strlower", "strupper", "tostringall", "tinsert", "tremove",

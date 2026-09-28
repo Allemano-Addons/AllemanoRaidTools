@@ -1,4 +1,4 @@
--- Notes: raid notes written by the leader, sent to everyone with SRT and shown in the note
+-- Notes: raid notes written by the leader, sent to everyone with ART and shown in the note
 -- window. Receivers confirm, so the leader sees who has the note. Players who join later
 -- ask for it. Every character also has a personal note shown under the raid note.
 --
@@ -7,10 +7,10 @@
 --   {spell:12345}                  spell icon
 --   {p:Name, Other Name}...{/p}    only these players see the text
 -- Names of group members (yours too) are shown in their class color.
-local _, SRT = ...
+local _, ART = ...
 
 local Notes = {}
-SRT.Notes = Notes
+ART.Notes = Notes
 
 Notes.MAX_LETTERS = 5000
 local REQUEST_MAX_AGE = 12 * 3600 -- a note older than this is not handed to late joiners
@@ -22,7 +22,7 @@ local listeners = {}
 -- fn() runs whenever notes, the active note or confirmations change.
 function Notes.OnChange(fn) listeners[#listeners + 1] = fn end
 local function changed()
-    for _, fn in ipairs(listeners) do SRT:Call("notes listener", fn) end
+    for _, fn in ipairs(listeners) do ART:Call("notes listener", fn) end
 end
 Notes.Changed = changed
 
@@ -30,7 +30,7 @@ Notes.Changed = changed
 -- Saved notes (the leader's library)
 -- ---------------------------------------------------------------------------
 
-local function db() return SRT.db.notes end
+local function db() return ART.db.notes end
 
 function Notes.List() return db().list end
 
@@ -77,13 +77,13 @@ function Notes.Save(id, title, text)
 end
 
 function Notes.Personal()
-    local key = UnitGUID("player") or SRT.Compat.PlayerName()
-    return SRT.db.personal[key] or ""
+    local key = UnitGUID("player") or ART.Compat.PlayerName()
+    return ART.db.personal[key] or ""
 end
 
 function Notes.SetPersonal(text)
-    local key = UnitGUID("player") or SRT.Compat.PlayerName()
-    SRT.db.personal[key] = text ~= "" and text:sub(1, Notes.MAX_LETTERS) or nil
+    local key = UnitGUID("player") or ART.Compat.PlayerName()
+    ART.db.personal[key] = text ~= "" and text:sub(1, Notes.MAX_LETTERS) or nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -96,7 +96,7 @@ end
 
 -- Is the player one of the names in a {p:...} list?
 local function listed(list)
-    local me = strlower(SRT.Compat.PlayerName())
+    local me = strlower(ART.Compat.PlayerName())
     local first = strlower((UnitName("player")))
     for entry in list:gmatch("[^,]+") do
         entry = strlower(strtrim(entry))
@@ -136,9 +136,9 @@ function Notes.Render(text)
     end
     -- Group members (the player included, also solo) in their class color.
     local full, first = {}, {}
-    for _, m in ipairs(SRT.Compat.GroupMembers()) do
+    for _, m in ipairs(ART.Compat.GroupMembers()) do
         local _, class = UnitClass(m.unit)
-        local r, g, b = SRT.Theme.ClassColor(class)
+        local r, g, b = ART.Theme.ClassColor(class)
         if r then
             local color = hexColor(r, g, b)
             full[#full + 1] = { m.name, color }
@@ -176,23 +176,23 @@ local UNESCAPE = { ["~"] = "~", n = "\n", t = "\t" }
 local function unescape(s) return (s:gsub("~(.)", UNESCAPE)) end
 Notes.escape, Notes.unescape = escape, unescape
 
-local function hashOf(title, text) return tostring(SRT.Comm.Checksum(title .. "\n" .. text)) end
+local function hashOf(title, text) return tostring(ART.Comm.Checksum(title .. "\n" .. text)) end
 
 local function payload(note)
     return note.hash .. "\t" .. escape(note.title) .. "\t" .. escape(note.text)
 end
 
 -- The note shown in the note window (received, or sent by us).
-function Notes.Active() return SRT.db.active end
+function Notes.Active() return ART.db.active end
 
 local function activate(title, text, sender, hash)
-    SRT.db.active = { title = title, text = text, sender = sender, at = time(), hash = hash }
+    ART.db.active = { title = title, text = text, sender = sender, at = time(), hash = hash }
     changed()
-    if SRT.NoteWindow and SRT.db.settings.noteAutoShow then SRT.NoteWindow.Show() end
+    if ART.NoteWindow and ART.db.settings.noteAutoShow then ART.NoteWindow.Show() end
 end
 
 function Notes.CanSend()
-    return IsInGroup() and SRT.Compat.IsLeaderOrAssist()
+    return IsInGroup() and ART.Compat.IsLeaderOrAssist()
 end
 
 -- Sends a saved note to the group. Solo it is only shown to yourself (for testing).
@@ -200,42 +200,42 @@ function Notes.Send(id)
     local n = Notes.Get(id)
     if not n then return end
     local hash = hashOf(n.title, n.text)
-    activate(n.title, n.text, SRT.Compat.PlayerName(), hash)
+    activate(n.title, n.text, ART.Compat.PlayerName(), hash)
     if not IsInGroup() then
-        SRT:Print("Not in a group: the note is only shown to you.")
+        ART:Print("Not in a group: the note is only shown to you.")
         return
     end
-    if not SRT.Compat.IsLeaderOrAssist() then
-        SRT:Print("Only the raid leader or an assistant can send notes.")
+    if not ART.Compat.IsLeaderOrAssist() then
+        ART:Print("Only the raid leader or an assistant can send notes.")
         return
     end
-    SRT.db.lastSent = { title = n.title, hash = hash, at = time(), acks = {} }
-    local parts = SRT.Comm.Send("NOTE", payload(SRT.db.active))
-    SRT:Print(("Sending \"%s\" to the group (%d part%s)."):format(n.title, parts or 0, parts == 1 and "" or "s"))
+    ART.db.lastSent = { title = n.title, hash = hash, at = time(), acks = {} }
+    local parts = ART.Comm.Send("NOTE", payload(ART.db.active))
+    ART:Print(("Sending \"%s\" to the group (%d part%s)."):format(n.title, parts or 0, parts == 1 and "" or "s"))
     changed()
 end
 
 function Notes.Resend()
-    local a = SRT.db.active
+    local a = ART.db.active
     if not a or not Notes.CanSend() then return end
-    SRT.db.lastSent = { title = a.title, hash = a.hash, at = time(), acks = {} }
-    SRT.Comm.Send("NOTE", payload(a))
+    ART.db.lastSent = { title = a.title, hash = a.hash, at = time(), acks = {} }
+    ART.Comm.Send("NOTE", payload(a))
     changed()
 end
 
--- Who has the last note we sent: { title, at, have, total, missing = { { name, noSRT, offline } } }
+-- Who has the last note we sent: { title, at, have, total, missing = { { name, noART, offline } } }
 function Notes.Status()
-    local sent = SRT.db.lastSent
+    local sent = ART.db.lastSent
     if not sent or not IsInGroup() then return nil end
     local s = { title = sent.title, at = sent.at, have = 0, total = 0, missing = {} }
-    local me = SRT.Compat.NameKey(SRT.Compat.PlayerName())
-    for _, m in ipairs(SRT.Compat.GroupMembers()) do
-        local key = SRT.Compat.NameKey(m.name)
+    local me = ART.Compat.NameKey(ART.Compat.PlayerName())
+    for _, m in ipairs(ART.Compat.GroupMembers()) do
+        local key = ART.Compat.NameKey(m.name)
         s.total = s.total + 1
         if key == me or sent.acks[key] then
             s.have = s.have + 1
         else
-            s.missing[#s.missing + 1] = { name = m.name, noSRT = not SRT.Comm.seen[key], offline = not m.online }
+            s.missing[#s.missing + 1] = { name = m.name, noART = not ART.Comm.seen[key], offline = not m.online }
         end
     end
     return s
@@ -243,46 +243,46 @@ end
 
 -- Only the leader and assistants may change the raid's note.
 local function fromLeader(sender)
-    local unit = SRT.Compat.UnitForName(sender)
-    return unit and SRT.Compat.IsLeaderOrAssist(unit)
+    local unit = ART.Compat.UnitForName(sender)
+    return unit and ART.Compat.IsLeaderOrAssist(unit)
 end
 
-SRT.Comm.Register("NOTE", function(sender, data)
+ART.Comm.Register("NOTE", function(sender, data)
     if not fromLeader(sender) then return end
     local hash, title, text = data:match("^(%d+)\t([^\t]*)\t(.*)$")
     if not hash then return end
-    SRT.Comm.Send("NACK", hash, "WHISPER", sender)
-    local a = SRT.db.active
+    ART.Comm.Send("NACK", hash, "WHISPER", sender)
+    local a = ART.db.active
     if a and a.hash == hash and a.sender == sender then return end -- already have it
     activate(unescape(title), unescape(text), sender, hash)
 end)
 
-SRT.Comm.Register("NACK", function(sender, hash)
-    local sent = SRT.db.lastSent
+ART.Comm.Register("NACK", function(sender, hash)
+    local sent = ART.db.lastSent
     if not sent or sent.hash ~= hash then return end
-    sent.acks[SRT.Compat.NameKey(sender)] = true
+    sent.acks[ART.Compat.NameKey(sender)] = true
     changed()
 end)
 
 -- A late joiner asks; the leader or assistant who sent the note answers with a whisper.
-SRT.Comm.Register("NREQ", function(sender)
-    local a, sent = SRT.db.active, SRT.db.lastSent
+ART.Comm.Register("NREQ", function(sender)
+    local a, sent = ART.db.active, ART.db.lastSent
     if not a or not sent or sent.hash ~= a.hash or time() - sent.at > REQUEST_MAX_AGE then return end
-    if not SRT.Compat.IsLeaderOrAssist() then return end
-    SRT.Comm.Send("NOTE", payload(a), "WHISPER", sender)
+    if not ART.Compat.IsLeaderOrAssist() then return end
+    ART.Comm.Send("NOTE", payload(a), "WHISPER", sender)
 end)
 
 local wasGrouped
 local function askForNote()
-    if IsInGroup() then SRT.Comm.Send("NREQ", "") end
+    if IsInGroup() then ART.Comm.Send("NREQ", "") end
 end
-SRT:RegisterEvent("GROUP_ROSTER_UPDATE", function()
+ART:RegisterEvent("GROUP_ROSTER_UPDATE", function()
     local grouped = IsInGroup()
     if grouped and wasGrouped == false then C_Timer.After(3, askForNote) end
     wasGrouped = grouped
     changed()
 end)
-SRT:RegisterEvent("PLAYER_ENTERING_WORLD", function(_, isLogin, isReload)
+ART:RegisterEvent("PLAYER_ENTERING_WORLD", function(_, isLogin, isReload)
     wasGrouped = IsInGroup()
     if (isLogin or isReload) and wasGrouped then C_Timer.After(5, askForNote) end
 end)
@@ -292,8 +292,8 @@ end)
 -- ---------------------------------------------------------------------------
 
 function Notes.PostToChat(text)
-    local channel = SRT.Compat.GroupChatChannel()
-    if not channel then SRT:Print("You are not in a group.") return end
+    local channel = ART.Compat.GroupChatChannel()
+    if not channel then ART:Print("You are not in a group.") return end
     local lines = {}
     text = Notes.Visible(text or ""):gsub("{spell:%d+}", "")
     for line in (text .. "\n"):gmatch("(.-)\n") do
@@ -301,6 +301,6 @@ function Notes.PostToChat(text)
         if line ~= "" then lines[#lines + 1] = line:sub(1, 250) end
     end
     for i, line in ipairs(lines) do
-        C_Timer.After((i - 1) * 0.3, function() SRT.Compat.SendChat(line, channel) end)
+        C_Timer.After((i - 1) * 0.3, function() ART.Compat.SendChat(line, channel) end)
     end
 end

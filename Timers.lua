@@ -1,12 +1,12 @@
 -- Timers: pull countdown, break timer and ready check for the raid leader, timer bars
 -- for everyone. The pull uses Blizzard's own countdown when the client allows it (every
--- raider sees it, SRT or not); breaks are SRT bars plus a raid chat line.
-local _, SRT = ...
+-- raider sees it, ART or not); breaks are ART bars plus a raid chat line.
+local _, ART = ...
 
-local W = SRT.Widgets
+local W = ART.Widgets
 
 local Timers = {}
-SRT.Timers = Timers
+ART.Timers = Timers
 
 local BAR_W, BAR_H, GAP = 240, 22, 4
 local anchor
@@ -27,7 +27,7 @@ Timers.Format = fmtTime
 
 local function savePosition()
     local _, _, _, x, y = anchor:GetPoint(1)
-    SRT.db.timers.x, SRT.db.timers.y = x, y
+    ART.db.timers.x, ART.db.timers.y = x, y
 end
 
 local function getAnchor()
@@ -36,7 +36,7 @@ local function getAnchor()
     anchor:SetSize(BAR_W, BAR_H)
     anchor:SetMovable(true)
     anchor:SetClampedToScreen(true)
-    local t = SRT.db.timers
+    local t = ART.db.timers
     anchor:SetPoint("TOP", UIParent, "TOP", t.x or 0, t.y or -180)
     return anchor
 end
@@ -112,25 +112,25 @@ end
 function Timers.Start(kind, seconds, label, total)
     if seconds <= 0 then return Timers.Stop(kind) end
     active[kind] = { label = label, total = total or seconds, endsAt = GetTime() + seconds }
-    SRT.db.timers.running = SRT.db.timers.running or {}
-    SRT.db.timers.running[kind] = { label = label, total = total or seconds, ends = GetServerTime() + seconds }
+    ART.db.timers.running = ART.db.timers.running or {}
+    ART.db.timers.running[kind] = { label = label, total = total or seconds, ends = GetServerTime() + seconds }
     local bar = bars[kind] or createBar(kind)
     bar.label:SetText(label)
     bar:Show()
     layout()
     update()
-    if not ticker then ticker = C_Timer.NewTicker(0.1, function() SRT:Call("timers", update) end) end
-    if SRT.Main then SRT.Main.Refresh() end
-    if SRT.Toolbar then SRT.Toolbar.Refresh() end
+    if not ticker then ticker = C_Timer.NewTicker(0.1, function() ART:Call("timers", update) end) end
+    if ART.Main then ART.Main.Refresh() end
+    if ART.Toolbar then ART.Toolbar.Refresh() end
 end
 
 function Timers.Stop(kind)
     active[kind] = nil
-    if SRT.db.timers.running then SRT.db.timers.running[kind] = nil end
+    if ART.db.timers.running then ART.db.timers.running[kind] = nil end
     if bars[kind] then bars[kind]:Hide() end
     layout()
-    if SRT.Main then SRT.Main.Refresh() end
-    if SRT.Toolbar then SRT.Toolbar.Refresh() end
+    if ART.Main then ART.Main.Refresh() end
+    if ART.Toolbar then ART.Toolbar.Refresh() end
 end
 
 -- Seconds left, nil when not running.
@@ -140,8 +140,8 @@ function Timers.Remaining(kind)
 end
 
 -- A break survives /reload (the pull is too short to matter).
-SRT:OnReady(function()
-    local running = SRT.db.timers.running
+ART:OnReady(function()
+    local running = ART.db.timers.running
     if not running then return end
     for kind, t in pairs(running) do
         local left = (t.ends or 0) - GetServerTime()
@@ -155,32 +155,32 @@ end)
 
 -- In a group only the leader and assistants may start timers; solo is allowed for testing.
 function Timers.CanLead()
-    return not IsInGroup() or SRT.Compat.IsLeaderOrAssist()
+    return not IsInGroup() or ART.Compat.IsLeaderOrAssist()
 end
 
 local function refuse()
-    SRT:Print("Only the raid leader or an assistant can do that.")
+    ART:Print("Only the raid leader or an assistant can do that.")
 end
 
 function Timers.ReadyCheck()
     if not Timers.CanLead() then return refuse() end
-    if not IsInGroup() then SRT:Print("You are not in a group.") return end
-    if not SRT.Compat.DoReadyCheck() then SRT:Print("The game refused the ready check.") end
+    if not IsInGroup() then ART:Print("You are not in a group.") return end
+    if not ART.Compat.DoReadyCheck() then ART:Print("The game refused the ready check.") end
 end
 
 function Timers.Pull(seconds)
     if not Timers.CanLead() then return refuse() end
     seconds = floor(tonumber(seconds) or 10)
-    if SRT.Compat.DoCountdown(seconds) then
+    if ART.Compat.DoCountdown(seconds) then
         Timers.native = true
         return
     end
-    -- No Blizzard countdown: SRT bars for SRT users, a chat line for everyone else.
+    -- No Blizzard countdown: ART bars for ART users, a chat line for everyone else.
     Timers.native = false
     Timers.Start("pull", seconds, "Pull")
-    SRT.Comm.Send("TIMER", ("pull|%d"):format(seconds))
-    local channel = SRT.Compat.GroupChatChannel()
-    if channel and seconds > 0 then SRT.Compat.SendChat(("Pull in %d"):format(seconds), channel) end
+    ART.Comm.Send("TIMER", ("pull|%d"):format(seconds))
+    local channel = ART.Compat.GroupChatChannel()
+    if channel and seconds > 0 then ART.Compat.SendChat(("Pull in %d"):format(seconds), channel) end
 end
 
 function Timers.Break(minutes)
@@ -188,20 +188,20 @@ function Timers.Break(minutes)
     minutes = tonumber(minutes) or 10
     local seconds = floor(minutes * 60)
     Timers.Start("break", seconds, "Break")
-    SRT.Comm.Send("TIMER", ("break|%d"):format(seconds))
-    local channel = SRT.Compat.GroupChatChannel()
-    if channel and SRT.db.settings.announceBreak then
+    ART.Comm.Send("TIMER", ("break|%d"):format(seconds))
+    local channel = ART.Compat.GroupChatChannel()
+    if channel and ART.db.settings.announceBreak then
         if seconds > 0 then
-            SRT.Compat.SendChat(("Break %s min, back at %s"):format(minutes, date("%H:%M", time() + seconds)), channel)
+            ART.Compat.SendChat(("Break %s min, back at %s"):format(minutes, date("%H:%M", time() + seconds)), channel)
         else
-            SRT.Compat.SendChat("Break is over", channel)
+            ART.Compat.SendChat("Break is over", channel)
         end
     end
 end
 
-SRT.Comm.Register("TIMER", function(sender, payload)
-    local unit = SRT.Compat.UnitForName(sender)
-    if not unit or not SRT.Compat.IsLeaderOrAssist(unit) then return end
+ART.Comm.Register("TIMER", function(sender, payload)
+    local unit = ART.Compat.UnitForName(sender)
+    if not unit or not ART.Compat.IsLeaderOrAssist(unit) then return end
     -- Own timers: "c|seconds|label".
     local cs, label = payload:match("^c|(%d+)|(.+)$")
     if cs then
@@ -216,7 +216,7 @@ end)
 
 -- ---------------------------------------------------------------------------
 -- Own timers ("Buffs 5 min"): saved as presets, started for yourself or, as leader or
--- assistant in a group, for everyone with SRT.
+-- assistant in a group, for everyone with ART.
 -- ---------------------------------------------------------------------------
 
 local function cleanLabel(label) return (strtrim(label or ""):gsub("|", ""):sub(1, 30)) end
@@ -228,8 +228,8 @@ function Timers.Custom(label, seconds)
     seconds = floor(tonumber(seconds) or 0)
     local kind = "c:" .. label
     if seconds > 0 then Timers.Start(kind, seconds, label) else Timers.Stop(kind) end
-    if IsInGroup() and SRT.Compat.IsLeaderOrAssist() then
-        SRT.Comm.Send("TIMER", ("c|%d|%s"):format(max(0, seconds), label))
+    if IsInGroup() and ART.Compat.IsLeaderOrAssist() then
+        ART.Comm.Send("TIMER", ("c|%d|%s"):format(max(0, seconds), label))
     end
     return true
 end
@@ -257,12 +257,12 @@ function Timers.StopKind(kind)
     end
 end
 
-function Timers.Presets() return SRT.db.timers.presets end
+function Timers.Presets() return ART.db.timers.presets end
 
 function Timers.AddPreset(label, minutes)
     label, minutes = cleanLabel(label), tonumber(minutes)
     if label == "" or not minutes or minutes <= 0 then return false end
-    local list = SRT.db.timers.presets
+    local list = ART.db.timers.presets
     for _, p in ipairs(list) do
         if p.label == label then p.seconds = floor(minutes * 60) return true end
     end
@@ -271,14 +271,14 @@ function Timers.AddPreset(label, minutes)
 end
 
 function Timers.RemovePreset(i)
-    tremove(SRT.db.timers.presets, i)
+    tremove(ART.db.timers.presets, i)
 end
 
 -- Blizzard's countdown started (by anyone): our own pull bar would be a duplicate.
-SRT:RegisterEvent("START_PLAYER_COUNTDOWN", function()
+ART:RegisterEvent("START_PLAYER_COUNTDOWN", function()
     if active.pull then Timers.Stop("pull") end
 end)
 
-SRT:AddSlashCommand("pull", function(arg) Timers.Pull(arg ~= "" and arg or 10) end, "pull countdown (/srt pull 15, /srt pull 0 cancels)")
-SRT:AddSlashCommand("break", function(arg) Timers.Break(arg ~= "" and arg or 10) end, "break timer in minutes (/srt break 5, /srt break 0 ends it)")
-SRT:AddSlashCommand("rc", Timers.ReadyCheck, "start a ready check")
+ART:AddSlashCommand("pull", function(arg) Timers.Pull(arg ~= "" and arg or 10) end, "pull countdown (/art pull 15, /art pull 0 cancels)")
+ART:AddSlashCommand("break", function(arg) Timers.Break(arg ~= "" and arg or 10) end, "break timer in minutes (/art break 5, /art break 0 ends it)")
+ART:AddSlashCommand("rc", Timers.ReadyCheck, "start a ready check")

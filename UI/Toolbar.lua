@@ -1,15 +1,15 @@
 -- Toolbar: a small bar outside the main window with the tools picked in the settings:
--- open SRT, raid target icons, world markers, ready check, pull, break and the note.
+-- open ART, raid target icons, world markers, ready check, pull, break and the note.
 -- Target icons and world markers are protected on WoW Forever, so they are secure macro
 -- buttons ("/tm N", "/wm N"). A bar with
 -- secure buttons may not be moved, shown, hidden or rebuilt in combat: those changes wait
 -- for combat to end.
-local _, SRT = ...
+local _, ART = ...
 
-local Theme, W = SRT.Theme, SRT.Widgets
+local Theme, W = ART.Theme, ART.Widgets
 
 local Toolbar = {}
-SRT.Toolbar = Toolbar
+ART.Toolbar = Toolbar
 
 local SIZE, GAP, GROUP_GAP, HANDLE = 24, 2, 8, 8
 local ICON = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_"
@@ -21,7 +21,7 @@ local ICON_NAME = { "Star", "Circle", "Diamond", "Triangle", "Moon", "Square", "
 
 -- Order on the bar and the label in menus/settings.
 Toolbar.ITEMS = {
-    { "open", "Open SRT" },
+    { "open", "Open ART" },
     { "marks", "Raid target icons" },
     { "world", "World markers" },
     { "readycheck", "Ready check" },
@@ -34,7 +34,7 @@ local bar, handle
 local parts = {}   -- [item] = { buttons }
 local pending      -- a layout change waiting for combat to end
 
-local function db() return SRT.db.toolbar end
+local function db() return ART.db.toolbar end
 
 -- ---------------------------------------------------------------------------
 -- Buttons
@@ -73,7 +73,7 @@ local function textButton(label, tooltip, onClick)
     end
     b:SetLabel(label)
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    b:SetScript("OnClick", function(self, button) SRT:Call("toolbar", onClick, self, button) end)
+    b:SetScript("OnClick", function(self, button) ART:Call("toolbar", onClick, self, button) end)
     return b
 end
 
@@ -121,19 +121,19 @@ local function build()
     end)
     handle:SetScript("OnClick", function() Toolbar.Menu() end)
     handle:SetScript("OnEnter", function(self)
-        W.ShowTooltip(self, { "SRT toolbar", db().locked and "Right-click: options" or "Drag to move, right-click: options" })
+        W.ShowTooltip(self, { "ART toolbar", db().locked and "Right-click: options" or "Drag to move, right-click: options" })
     end)
     handle:SetScript("OnLeave", function() W.HideTooltip() end)
 
-    -- Open SRT: the SRT mark in the accent color ("SRT" as text if the file does not load).
-    local open = textButton("", "Open or close SlaughterRaidTools", function() SRT.Main.Toggle() end)
+    -- Open ART: the ART mark in the accent color ("ART" as text if the file does not load).
+    local open = textButton("", "Open or close Allemano Raid Tools", function() ART.Main.Toggle() end)
     open.mark = open:CreateTexture(nil, "ARTWORK")
-    if open.mark:SetTexture(SRT.MARK) ~= false then
+    if open.mark:SetTexture(ART.MARK) ~= false then
         open.mark:SetSize(18, 18)
         open.mark:SetPoint("CENTER")
         W.OnAccent(function(r, g, b) open.mark:SetVertexColor(r, g, b, 1) end)
     else
-        open:SetLabel("SRT")
+        open:SetLabel("ART")
     end
     parts.open = { open }
 
@@ -169,20 +169,20 @@ local function build()
     clearWorld.label:SetText("x")
     parts.world[9] = clearWorld
 
-    parts.readycheck = { textButton("RC", "Ready check", function() SRT.Timers.ReadyCheck() end) }
+    parts.readycheck = { textButton("RC", "Ready check", function() ART.Timers.ReadyCheck() end) }
     parts.pull = { textButton("Pull", { "Left-click: pull in 10", "Shift-click: pull in 15", "Right-click: cancel the pull" },
         function(_, button)
-            if button == "RightButton" then SRT.Timers.Pull(0) else SRT.Timers.Pull(IsShiftKeyDown() and 15 or 10) end
+            if button == "RightButton" then ART.Timers.Pull(0) else ART.Timers.Pull(IsShiftKeyDown() and 15 or 10) end
         end) }
     parts.breaktimer = { textButton("Break", { "Left-click: break 10 min", "Shift-click: break 5 min", "Right-click: end the break" },
         function(_, button)
-            if button == "RightButton" or SRT.Timers.Remaining("break") then
-                SRT.Timers.Break(0)
+            if button == "RightButton" or ART.Timers.Remaining("break") then
+                ART.Timers.Break(0)
             else
-                SRT.Timers.Break(IsShiftKeyDown() and 5 or 10)
+                ART.Timers.Break(IsShiftKeyDown() and 5 or 10)
             end
         end) }
-    parts.note = { textButton("Note", "Show or hide the note window", function() SRT.NoteWindow.Toggle() end) }
+    parts.note = { textButton("Note", "Show or hide the note window", function() ART.NoteWindow.Toggle() end) }
 end
 
 -- ---------------------------------------------------------------------------
@@ -242,7 +242,7 @@ end
 
 -- Places the chosen items; hides the rest. Waits for the end of combat if needed.
 function Toolbar.Layout()
-    if not SRT.db then return end
+    if not ART.db then return end
     if InCombatLockdown() then pending = true return end
     pending = nil
     if not wanted() then
@@ -318,12 +318,12 @@ function Toolbar.Refresh()
     local current = UnitExists("target") and GetRaidTargetIndex("target")
     if issecretvalue and issecretvalue(current) then current = nil end -- hidden in combat
     for i = 1, 8 do paintBorder(parts.marks[i], current == i and "accent" or "line") end
-    local lead = SRT.Timers.CanLead()
+    local lead = ART.Timers.CanLead()
     for _, key in ipairs({ "readycheck", "pull", "breaktimer" }) do parts[key][1]:SetAlpha(lead and 1 or 0.4) end
     local breakBtn = parts.breaktimer[1]
-    local running = SRT.Timers.Remaining("break")
+    local running = ART.Timers.Remaining("break")
     breakBtn.text:SetTextColor(Theme:Color(running and "warn" or "text"))
-    parts.note[1].text:SetTextColor(Theme:Color(SRT.NoteWindow.IsShown() and "text" or "textDim"))
+    parts.note[1].text:SetTextColor(Theme:Color(ART.NoteWindow.IsShown() and "text" or "textDim"))
 end
 
 function Toolbar.IsShown() return bar ~= nil and bar:IsShown() end
@@ -332,14 +332,14 @@ function Toolbar.IsShown() return bar ~= nil and bar:IsShown() end
 function Toolbar.Set(key, value)
     db()[key] = value
     Toolbar.Layout()
-    if pending then SRT:Print("The toolbar changes after combat.") end
-    SRT.Main.Refresh() -- the settings page shows these too
+    if pending then ART:Print("The toolbar changes after combat.") end
+    ART.Main.Refresh() -- the settings page shows these too
 end
 
 function Toolbar.SetItem(item, on)
     db().items[item] = on and true or false
     Toolbar.Layout()
-    if pending then SRT:Print("The toolbar changes after combat.") end
+    if pending then ART:Print("The toolbar changes after combat.") end
 end
 
 function Toolbar.Menu()
@@ -357,23 +357,23 @@ function Toolbar.Menu()
     end
     items[#items + 1] = { text = "Lock position", checked = t.locked, onClick = function() Toolbar.Set("locked", not t.locked) end }
     items[#items + 1] = { text = "Only in a group", checked = t.onlyInGroup, onClick = function() Toolbar.Set("onlyInGroup", not t.onlyInGroup) end }
-    items[#items + 1] = { text = "More settings...", onClick = function() SRT.Main.Toggle("toolbar") end }
-    items[#items + 1] = { text = "Hide toolbar (/srt bar)", danger = true, onClick = function() Toolbar.Set("shown", false) end }
+    items[#items + 1] = { text = "More settings...", onClick = function() ART.Main.Toggle("toolbar") end }
+    items[#items + 1] = { text = "Hide toolbar (/art bar)", danger = true, onClick = function() Toolbar.Set("shown", false) end }
     W.OpenMenu(items)
 end
 
-SRT:OnReady(Toolbar.Layout)
-SRT:RegisterEvent("PLAYER_REGEN_ENABLED", function() if pending then Toolbar.Layout() end end)
-SRT:RegisterEvent("GROUP_ROSTER_UPDATE", function()
+ART:OnReady(Toolbar.Layout)
+ART:RegisterEvent("PLAYER_REGEN_ENABLED", function() if pending then Toolbar.Layout() end end)
+ART:RegisterEvent("GROUP_ROSTER_UPDATE", function()
     if db().onlyInGroup and Toolbar.IsShown() ~= wanted() then Toolbar.Layout() end
     Toolbar.Refresh()
 end)
-SRT:RegisterEvent("PARTY_LEADER_CHANGED", Toolbar.Refresh)
-SRT:RegisterEvent("RAID_TARGET_UPDATE", Toolbar.Refresh)
-SRT:RegisterEvent("PLAYER_TARGET_CHANGED", Toolbar.Refresh)
-SRT.Notes.OnChange(Toolbar.Refresh)
-SRT:OnSettingChanged(function(key) if key == "accent" or key == "useClassColor" then Toolbar.Refresh() end end)
+ART:RegisterEvent("PARTY_LEADER_CHANGED", Toolbar.Refresh)
+ART:RegisterEvent("RAID_TARGET_UPDATE", Toolbar.Refresh)
+ART:RegisterEvent("PLAYER_TARGET_CHANGED", Toolbar.Refresh)
+ART.Notes.OnChange(Toolbar.Refresh)
+ART:OnSettingChanged(function(key) if key == "accent" or key == "useClassColor" then Toolbar.Refresh() end end)
 
-SRT:AddSlashCommand("bar", function()
+ART:AddSlashCommand("bar", function()
     Toolbar.Set("shown", not db().shown)
 end, "show or hide the toolbar")

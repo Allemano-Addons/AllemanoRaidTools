@@ -1,16 +1,16 @@
--- Launcher: a small square button on the screen (like Hush's and AltBoard's) with the SRT
--- mark. Left-click opens SRT, right-click shows or hides the note window, drag to move.
-local _, SRT = ...
+-- Launcher: a small square button on the screen (like Hush's and AltBoard's) with the ART
+-- mark. Left-click opens ART, right-click shows or hides the note window, drag to move.
+local _, ART = ...
 
-local Theme, W = SRT.Theme, SRT.Widgets
+local Theme, W = ART.Theme, ART.Widgets
 
 local Launcher = {}
-SRT.Launcher = Launcher
+ART.Launcher = Launcher
 
 local SIZE = 30 -- same as the Hush and AltBoard buttons
 local button
 
-local function db() return SRT.db.launcher end
+local function db() return ART.db.launcher end
 
 local function build()
     button = CreateFrame("Button", nil, UIParent)
@@ -28,7 +28,7 @@ local function build()
     button.icon = button:CreateTexture(nil, "ARTWORK")
     button.icon:SetPoint("TOPLEFT", 4, -4)
     button.icon:SetPoint("BOTTOMRIGHT", -4, 4)
-    if button.icon:SetTexture(SRT.MARK) ~= false then
+    if button.icon:SetTexture(ART.MARK) ~= false then
         W.OnAccent(function(r, g, b) button.icon:SetVertexColor(r, g, b, 1) end)
     else
         W.OnAccent(function(r, g, b) button.icon:SetColorTexture(r, g, b, 1) end)
@@ -40,12 +40,12 @@ local function build()
         d.point, d.rel, d.x, d.y = point, rel, x, y
     end)
     button:SetScript("OnClick", function(_, which)
-        if which == "RightButton" then SRT.NoteWindow.Toggle() else SRT.Main.Toggle() end
+        if which == "RightButton" then ART.NoteWindow.Toggle() else ART.Main.Toggle() end
     end)
     button:SetScript("OnEnter", function(self)
         for _, side in pairs(self.border) do side:SetColorTexture(Theme:Accent()) end
-        W.ShowTooltip(self, { "SlaughterRaidTools", "Left-click: open / close", "Right-click: note window",
-            db().locked and "/srt button hides it" or "Drag to move, /srt button hides it" })
+        W.ShowTooltip(self, { "Allemano Raid Tools", "Left-click: open / close", "Right-click: note window",
+            db().locked and "/art button hides it" or "Drag to move, /art button hides it" })
     end)
     button:SetScript("OnLeave", function(self)
         for _, side in pairs(self.border) do side:SetColorTexture(Theme:Color("line")) end
@@ -54,7 +54,7 @@ local function build()
 end
 
 function Launcher.Refresh()
-    if not SRT.db then return end
+    if not ART.db then return end
     if db().hidden then
         if button then button:Hide() end
         return
@@ -65,9 +65,9 @@ end
 
 function Launcher.IsShown() return button ~= nil and button:IsShown() end
 
-SRT:OnReady(Launcher.Refresh)
-SRT:AddSlashCommand("button", function()
+ART:OnReady(Launcher.Refresh)
+ART:AddSlashCommand("button", function()
     db().hidden = not db().hidden or nil
     Launcher.Refresh()
-    SRT:Print(db().hidden and "Launcher button hidden (/srt button shows it)." or "Launcher button shown.")
+    ART:Print(db().hidden and "Launcher button hidden (/art button shows it)." or "Launcher button shown.")
 end, "show or hide the launcher button")

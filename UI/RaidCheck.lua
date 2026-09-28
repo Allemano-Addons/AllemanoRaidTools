@@ -1,9 +1,9 @@
 -- Raid check page: Check (a table of the group: one column per category) and Categories
 -- (what counts: editable, because the WoW Forever consumable meta is not known yet).
-local _, SRT = ...
+local _, ART = ...
 
-local Theme, W = SRT.Theme, SRT.Widgets
-local Main, RaidCheck = SRT.Main, SRT.RaidCheck
+local Theme, W = ART.Theme, ART.Widgets
+local Main, RaidCheck = ART.Main, ART.RaidCheck
 
 local PAD, ROW_H, NAME_W, HEAD_H = 26, 20, 150, 36
 local CELL_COLOR = { yes = "good", low = "warn", no = "bad", optional = "textFaint", unknown = "textFaint" }
@@ -24,7 +24,7 @@ local function wheel(scroll, child, step)
 end
 
 Main.RegisterPage("raidcheck", function(page)
-    local db = SRT.db.raidcheck
+    local db = ART.db.raidcheck
     local mode = "check"
     local refresh
 
@@ -45,7 +45,7 @@ Main.RegisterPage("raidcheck", function(page)
     -- Check -------------------------------------------------------------------------
     local scanBtn = W.Button(page, "Scan", "accent", function() RaidCheck.Refresh() end, 26)
     scanBtn:SetPoint("TOPRIGHT", -PAD, -20)
-    scanBtn.tooltip = "Reads everyone's buffs and asks SRT users for their weapon oil and durability."
+    scanBtn.tooltip = "Reads everyone's buffs and asks ART users for their weapon oil and durability."
     local postBtn = W.Button(page, "Post missing", nil, function() RaidCheck.PostMissing() end, 26)
     postBtn:SetPoint("RIGHT", scanBtn, "LEFT", -10, 0)
     postBtn.tooltip = "Posts who is missing what in raid chat (optional categories are left out)."
@@ -131,7 +131,7 @@ Main.RegisterPage("raidcheck", function(page)
             h.count:SetText(t and t.total > 0 and ("%d/%d"):format(t.have, t.total) or "")
             h.count:SetTextColor(Theme:Color(t and t.have < t.total and not c.optional and "warn" or "text"))
             h.tip = { c.name .. (c.optional and " (optional)" or ""),
-                (c.kind == "weapon" or c.kind == "durability") and "Reported by SRT users only (? = no SRT)." or nil }
+                (c.kind == "weapon" or c.kind == "durability") and "Reported by ART users only (? = no ART)." or nil }
             h:Show()
         end
         for i = #cats + 1, #headCells do headCells[i]:Hide() end
@@ -145,7 +145,7 @@ Main.RegisterPage("raidcheck", function(page)
         emptyText:SetText("")
         local missingCount = 0
         for _, m in ipairs(RaidCheck.Missing(result)) do missingCount = missingCount + #m.names end
-        summary:SetText(("Scanned %s \194\183 %d players \194\183 %d missing items \194\183 ? = out of range or no SRT"):format(
+        summary:SetText(("Scanned %s \194\183 %d players \194\183 %d missing items \194\183 ? = out of range or no ART"):format(
             date("%H:%M:%S", result.at), #result.rows, missingCount))
 
         local y, n, lastGroup = 0, 0, nil
@@ -260,8 +260,8 @@ Main.RegisterPage("raidcheck", function(page)
 
     local BUILTIN = {
         ready = "Built in: the ready check answers.",
-        weapon = "Built in: temporary weapon enchant (oil, stone), reported by SRT users.",
-        durability = "Built in: the lowest item durability, reported by SRT users.",
+        weapon = "Built in: temporary weapon enchant (oil, stone), reported by ART users.",
+        durability = "Built in: the lowest item durability, reported by ART users.",
     }
 
     local function setEdit(e, text)

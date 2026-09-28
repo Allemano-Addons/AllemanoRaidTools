@@ -1,9 +1,9 @@
 -- Theme: colors, sizes and fonts. Same palette as Hush and AltBoard; font, text size and
 -- accent come from the settings (Appearance page).
-local _, SRT = ...
+local _, ART = ...
 
 local Theme = {}
-SRT.Theme = Theme
+ART.Theme = Theme
 
 local function hex(s)
     return tonumber(s:sub(1, 2), 16) / 255, tonumber(s:sub(3, 4), 16) / 255, tonumber(s:sub(5, 6), 16) / 255
@@ -33,9 +33,9 @@ Theme.TEXT_SIZES = { S = 11, M = 12, L = 14 }
 Theme.DEFAULT_ACCENT = "3FC7EB"
 Theme.CLASS_ORDER = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
 -- Extra accent choices besides the default and the class colors.
-Theme.EXTRA_ACCENTS = { { "C8332E", "Slaughter red" }, { "3FC77F", "Green" }, { "E8A33D", "Amber" }, { "E6E8EB", "White" } }
+Theme.EXTRA_ACCENTS = { { "C8332E", "Allemano red" }, { "3FC77F", "Green" }, { "E8A33D", "Amber" }, { "E6E8EB", "White" } }
 
-local function settings() return SRT.db and SRT.db.settings or {} end
+local function settings() return ART.db and ART.db.settings or {} end
 
 function Theme:Color(key)
     local c = self.colors[key]

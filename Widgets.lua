@@ -1,10 +1,10 @@
 -- Widgets: flat building blocks copied from AltBoard (Hush look, no Blizzard textures).
-local _, SRT = ...
+local _, ART = ...
 
-local Theme = SRT.Theme
+local Theme = ART.Theme
 
 local W = {}
-SRT.Widgets = W
+ART.Widgets = W
 
 -- Pixel-sized textures, re-sized when the UI scale changes.
 local pixelItems = {}
@@ -23,8 +23,8 @@ end
 local function refreshPixels()
     for i = 1, #pixelItems do applyPixel(pixelItems[i]) end
 end
-SRT:RegisterEvent("UI_SCALE_CHANGED", refreshPixels)
-SRT:RegisterEvent("DISPLAY_SIZE_CHANGED", refreshPixels)
+ART:RegisterEvent("UI_SCALE_CHANGED", refreshPixels)
+ART:RegisterEvent("DISPLAY_SIZE_CHANGED", refreshPixels)
 
 function W.Fill(frame, colorKey, alpha, layer)
     local t = frame:CreateTexture(nil, layer or "BACKGROUND")
@@ -85,7 +85,7 @@ function W.ApplyAccent()
     for i = 1, #accentFns do accentFns[i](r, g, b) end
 end
 
-SRT:OnSettingChanged(function(key)
+ART:OnSettingChanged(function(key)
     if key == "font" or key == "textSize" then
         W.RefreshFonts()
     elseif key == "useClassColor" or key == "accent" then
@@ -437,7 +437,7 @@ function W.Button(parent, label, style, onClick, height)
     end)
     b:SetScript("OnClick", function(self)
         if self.disabledReason then return end
-        if onClick then SRT:Call("button " .. tostring(label), onClick, self) end
+        if onClick then ART:Call("button " .. tostring(label), onClick, self) end
     end)
     b:SetLabel(label)
     W.OnAccent(paint)
@@ -459,7 +459,7 @@ function W.Link(parent, label, onClick)
         b.text:SetTextColor(r, g, bl)
         b.line:SetColorTexture(r, g, bl, 0.7)
     end)
-    b:SetScript("OnClick", function() if onClick then SRT:Call("link " .. label, onClick) end end)
+    b:SetScript("OnClick", function() if onClick then ART:Call("link " .. label, onClick) end end)
     return b
 end
 
@@ -646,7 +646,7 @@ function W.OpenMenu(items, anchor)
         b:SetEnabled(not item.disabled and not item.title)
         b:SetScript("OnClick", function()
             closeAll()
-            if item.onClick then SRT:Call("menu: " .. tostring(item.text), item.onClick) end
+            if item.onClick then ART:Call("menu: " .. tostring(item.text), item.onClick) end
         end)
         b:Show()
         width = max(width, b.text:GetStringWidth() + 30)
@@ -711,7 +711,7 @@ function W.Confirm(text, yesLabel, onYes)
     dialog.yes.text:SetText(yesLabel or "Yes")
     dialog.yes:SetScript("OnClick", function()
         closeAll()
-        SRT:Call("confirm", onYes)
+        ART:Call("confirm", onYes)
     end)
     dialog:ClearAllPoints()
     dialog:SetPoint("CENTER", UIParent, "CENTER", 0, 120)

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.0
+- Renamed: SlaughterRaidTools (SRT) is now **Allemano Raid Tools (ART)**, part of Allemano
+  Addons. Folder and TOC AllemanoRaidTools, saved data AllemanoRaidToolsDB, commands /art
+  (and /allemanoraidtools), addon message prefix ART (older SRT versions no longer talk to
+  ART), key binding under "Allemano Raid Tools", media files ART_*. Delete the old
+  SlaughterRaidTools folder. Saved data can be carried over by copying
+  WTF\...\SavedVariables\SlaughterRaidTools.lua to AllemanoRaidTools.lua and renaming the
+  first line to AllemanoRaidToolsDB = {.
+
 ## 0.14.0
 - Timers page (During > Timers): quick Pull 10/15 and Break 5/10/15 buttons; own timers saved
   as presets ("Buffs 5:00", "Soulstone 15:00"; add with a name and minutes, x removes) and

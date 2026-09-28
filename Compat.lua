@@ -1,9 +1,9 @@
 -- Compat: everything that may differ on WoW Forever. Other files go through here
 -- instead of calling version-sensitive APIs directly.
-local _, SRT = ...
+local _, ART = ...
 
 local Compat = {}
-SRT.Compat = Compat
+ART.Compat = Compat
 
 function Compat.GetAddOnMetadata(addon, field)
     if C_AddOns and C_AddOns.GetAddOnMetadata then

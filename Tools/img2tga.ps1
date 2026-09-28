@@ -1,7 +1,7 @@
 # img2tga.ps1 - make a Visual note background from a screenshot or picture (PNG/JPG/BMP).
 # Fits the picture into 1024x512 (the canvas is 2:1), centered on a dark background, and
 # writes an uncompressed 32-bit TGA that WoW loads. Put the result in
-# SlaughterRaidTools\Images\ and RESTART the game (a /reload does not find new files).
+# AllemanoRaidTools\Images\ and RESTART the game (a /reload does not find new files).
 # Usage: powershell -ExecutionPolicy Bypass -File img2tga.ps1 -Src shot.png [-Name ony_p2]
 param(
     [Parameter(Mandatory = $true)][string]$Src,

@@ -176,7 +176,7 @@ C_Map = { GetBestMapForUnit = function() return 1411 end,
     GetMapArtLayers = function() return { { layerWidth = 1002, layerHeight = 668, tileWidth = 256, tileHeight = 256 } } end,
     GetMapArtLayerTextures = function() local t = {} for i = 1, 12 do t[i] = 100000 + i end return t end }
 
--- A raid of four: us, two raiders with SRT (one on an older version) and one without.
+-- A raid of four: us, two raiders with ART (one on an older version) and one without.
 local ROSTER = {
     { "Allemano", "Moo" }, { "Kogosh", "Boll" }, { "Whissel", "Ljud" }, { "Nobody", "Here" },
 }
@@ -255,12 +255,12 @@ C_ChatInfo = {
 }
 
 -- Load the TOC files in order with the shared addon table.
-local SRT = {}
-for line in io.lines("SlaughterRaidTools.toc") do
+local ART = {}
+for line in io.lines("AllemanoRaidTools.toc") do
     line = line:gsub("\r", "")
     if line ~= "" and not line:match("^#") then
         local chunk = assert(loadfile((line:gsub("\\", "/"))))
-        chunk("SlaughterRaidTools", SRT)
+        chunk("AllemanoRaidTools", ART)
     end
 end
 
@@ -288,30 +288,30 @@ local function chatHas(pattern)
 end
 
 step("ADDON_LOADED drops errors from older versions", function()
-    SlaughterRaidToolsDB = { errors = { { t = 1, where = "ADDON_ACTION_FORBIDDEN", msg = "SetRaidTarget()", v = "0.0.0" } },
+    AllemanoRaidToolsDB = { errors = { { t = 1, where = "ADDON_ACTION_FORBIDDEN", msg = "SetRaidTarget()", v = "0.0.0" } },
         roster = { text = "Old\nRoster" } }
-    fire("ADDON_LOADED", "SlaughterRaidTools")
-    assert(#SRT.errors == 0, "old error kept")
-    local r = SRT.db.roster
+    fire("ADDON_LOADED", "AllemanoRaidTools")
+    assert(#ART.errors == 0, "old error kept")
+    local r = ART.db.roster
     assert(r.current == "Default" and r.profiles.Default == "Old\nRoster" and r.text == "Old\nRoster",
         "an old roster should become the Default profile")
 end)
 step("PLAYER_LOGIN", function() fire("PLAYER_LOGIN") end)
-step("help", function() SlashCmdList.SLAUGHTERRAIDTOOLS("help") assert(chatHas("/srt version")) end)
-step("full name has the surname", function() assert(SRT.Compat.PlayerName() == "Allemano Moo", SRT.Compat.PlayerName()) end)
+step("help", function() SlashCmdList.ALLEMANORAIDTOOLS("help") assert(chatHas("/art version")) end)
+step("full name has the surname", function() assert(ART.Compat.PlayerName() == "Allemano Moo", ART.Compat.PlayerName()) end)
 
 step("own messages are ignored", function()
     local got
-    SRT.Comm.Register("TEST", function() got = true end)
-    SRT.Comm.Send("TEST", "hi")
+    ART.Comm.Register("TEST", function() got = true end)
+    ART.Comm.Send("TEST", "hi")
     deliver() -- from ourselves
     assert(not got, "handled our own message")
 end)
 
 step("short message arrives in one part", function()
     local got
-    SRT.Comm.Register("TEST", function(sender, payload) got = { sender, payload } end)
-    assert(SRT.Comm.Send("TEST", "hello|with|pipes") == 1)
+    ART.Comm.Register("TEST", function(sender, payload) got = { sender, payload } end)
+    assert(ART.Comm.Send("TEST", "hello|with|pipes") == 1)
     assert(deliver("Kogosh Boll") == 1)
     assert(got and got[1] == "Kogosh Boll" and got[2] == "hello|with|pipes", "wrong payload")
 end)
@@ -321,29 +321,29 @@ step("long message is split, paced and joined", function()
     for i = 1, 3000 do body[i] = string.char(33 + i % 90) end
     body = table.concat(body)
     local got
-    SRT.Comm.Register("TEST", function(_, payload) got = payload end)
+    ART.Comm.Register("TEST", function(_, payload) got = payload end)
     advance(30) -- full burst
-    local parts = SRT.Comm.Send("TEST", body)
+    local parts = ART.Comm.Send("TEST", body)
     assert(parts == 13, "parts: " .. tostring(parts))
     assert(#sent == 8, "burst should send 8 at once, sent " .. #sent)
     advance(2.1)
     assert(#sent == 10, "pacing: expected 10 after 2 s, got " .. #sent)
     advance(10)
-    assert(#sent == 13 and SRT.Comm.QueueSize() == 0, "not all parts sent")
+    assert(#sent == 13 and ART.Comm.QueueSize() == 0, "not all parts sent")
     -- Deliver out of order.
     local list = sent
     sent = {}
-    for i = #list, 1, -1 do fire("CHAT_MSG_ADDON", "SRT", list[i].text, "RAID", "Kogosh Boll", nil) end
+    for i = #list, 1, -1 do fire("CHAT_MSG_ADDON", "ART", list[i].text, "RAID", "Kogosh Boll", nil) end
     assert(got == body, "joined payload differs")
 end)
 
 step("throttled send is retried", function()
     local got
-    SRT.Comm.Register("TEST", function(_, payload) got = payload end)
+    ART.Comm.Register("TEST", function(_, payload) got = payload end)
     advance(30)
     throttleNext = 1
-    SRT.Comm.Send("TEST", "again")
-    assert(#sent == 0 and SRT.Comm.QueueSize() == 1, "throttled message was dropped or sent")
+    ART.Comm.Send("TEST", "again")
+    assert(#sent == 0 and ART.Comm.QueueSize() == 1, "throttled message was dropped or sent")
     advance(2)
     assert(#sent == 1, "not retried")
     deliver("Kogosh Boll")
@@ -351,40 +351,40 @@ step("throttled send is retried", function()
 end)
 
 step("other protocol and garbage are ignored", function()
-    fire("CHAT_MSG_ADDON", "SRT", "2|TEST|1|1|1|x", "RAID", "Kogosh Boll")
-    fire("CHAT_MSG_ADDON", "SRT", "probe whisper", "WHISPER", "Kogosh Boll")
+    fire("CHAT_MSG_ADDON", "ART", "2|TEST|1|1|1|x", "RAID", "Kogosh Boll")
+    fire("CHAT_MSG_ADDON", "ART", "probe whisper", "WHISPER", "Kogosh Boll")
     fire("CHAT_MSG_ADDON", "OTHER", "1|TEST|1|1|1|x", "RAID", "Kogosh Boll")
 end)
 
 step("comm test round trip", function()
-    SlashCmdList.SLAUGHTERRAIDTOOLS("comm test 600")
+    SlashCmdList.ALLEMANORAIDTOOLS("comm test 600")
     advance(10)
     deliver("Whissel Ljud")
     assert(chatHas("Whissel Ljud: 600 bytes, .*intact"), "echo not reported intact")
 end)
 
 step("version compare", function()
-    local C = SRT.Version.Compare
+    local C = ART.Version.Compare
     assert(C("0.10.0", "0.9.9") == 1 and C("0.0.1", "0.0.1") == 0 and C("1.0", "1.0.1") == -1)
 end)
 
 step("version check lists versions and missing", function()
     advance(30)
-    SlashCmdList.SLAUGHTERRAIDTOOLS("version")
+    SlashCmdList.ALLEMANORAIDTOOLS("version")
     assert(#sent == 1 and sent[1].text:find("|VQ|"), "no query sent")
     sent = {}
     -- Replies from two raiders, one with an older version.
-    fire("CHAT_MSG_ADDON", "SRT", "1|VR|1|1|1|0.0.1", "RAID", "Kogosh Boll-ClassicBetaPvP2")
-    fire("CHAT_MSG_ADDON", "SRT", "1|VR|1|1|1|0.0.0", "RAID", "Whissel Ljud")
+    fire("CHAT_MSG_ADDON", "ART", "1|VR|1|1|1|0.0.1", "RAID", "Kogosh Boll-ClassicBetaPvP2")
+    fire("CHAT_MSG_ADDON", "ART", "1|VR|1|1|1|0.0.0", "RAID", "Whissel Ljud")
     advance(4)
     assert(chatHas("0%.0%.1.*%(2%).*Allemano Moo, Kogosh Boll"), "current version line wrong")
     assert(chatHas("0%.0%.0.*%(1%).*Whissel Ljud"), "old version line wrong")
-    assert(chatHas("no SRT.*%(1%).*Nobody Here"), "missing line wrong")
+    assert(chatHas("no ART.*%(1%).*Nobody Here"), "missing line wrong")
 end)
 
 step("answering a query and noticing a newer version", function()
     advance(30)
-    fire("CHAT_MSG_ADDON", "SRT", "1|VQ|5|1|1|0.2.0", "RAID", "Kogosh Boll")
+    fire("CHAT_MSG_ADDON", "ART", "1|VQ|5|1|1|0.2.0", "RAID", "Kogosh Boll")
     assert(#sent == 1 and sent[1].text:find("|VR|.*0%.0%.1$"), "no reply")
     sent = {}
     assert(chatHas("Kogosh Boll runs a newer version %(0%.2%.0"), "newer version not mentioned")
@@ -392,16 +392,16 @@ end)
 
 step("version alone", function()
     inRaid = false
-    SlashCmdList.SLAUGHTERRAIDTOOLS("version")
+    SlashCmdList.ALLEMANORAIDTOOLS("version")
     assert(chatHas("not in a group"), "solo version line missing")
     inRaid = true
 end)
 
 step("probe", function()
-    SlashCmdList.SLAUGHTERRAIDTOOLS("probe")
+    SlashCmdList.ALLEMANORAIDTOOLS("probe")
     deliver("Allemano Moo")
     advance(6)
-    local p = SRT.db.probe["Player-1-player"]
+    local p = ART.db.probe["Player-1-player"]
     assert(p and p.apis and p.events.CHAT_MSG_ADDON == "ok", "probe result missing")
     assert(#p.comm.received >= 1, "probe did not record received messages")
     assert(p.auras.player[1].expirationTime == "<secret>" and p.auras.raid2[1].name == "Flask", "aura probe wrong")
@@ -439,10 +439,10 @@ local function click(label)
 end
 
 step("open window", function()
-    SlashCmdList.SLAUGHTERRAIDTOOLS("")
-    local f = _G.SlaughterRaidToolsFrame
+    SlashCmdList.ALLEMANORAIDTOOLS("")
+    local f = _G.AllemanoRaidToolsFrame
     assert(f and f._shown, "window not shown")
-    assert(SRT.db.window.page == "home", "not on home")
+    assert(ART.db.window.page == "home", "not on home")
 end)
 step("sidebar badges: SOON on tools not built yet", function()
     local badges = {}
@@ -454,10 +454,10 @@ step("sidebar badges: SOON on tools not built yet", function()
     assert(badges.notes == "" and badges.raidcheck == "" and badges.home == "", "built tools have no badge")
 end)
 step("every page opens", function()
-    for _, section in ipairs(SRT.Main.NAV) do
+    for _, section in ipairs(ART.Main.NAV) do
         for _, item in ipairs(section[2]) do
             click(item[2])
-            assert(SRT.db.window.page == item[1], "page " .. item[1] .. " not selected")
+            assert(ART.db.window.page == item[1], "page " .. item[1] .. " not selected")
         end
     end
     click("Home")
@@ -467,13 +467,13 @@ step("appearance: swatch, class color, font, sizes", function()
     local sw
     for f, s in pairs(scripts) do if s.OnClick and f.hex == "C8332E" then sw = f end end
     scripts[sw].OnClick(sw)
-    assert(SRT.db.settings.accent == "C8332E", "swatch did not set the accent")
-    assert(select(1, SRT.Theme:Accent()) > 0.7, "accent not applied")
-    SRT:SetSetting("useClassColor", true)
-    local r, g = SRT.Theme:Accent()
+    assert(ART.db.settings.accent == "C8332E", "swatch did not set the accent")
+    assert(select(1, ART.Theme:Accent()) > 0.7, "accent not applied")
+    ART:SetSetting("useClassColor", true)
+    local r, g = ART.Theme:Accent()
     assert(r == 1 and g == 0.49, "class color not used")
     for _, kv in ipairs({ { "font", "Arial Narrow" }, { "textSize", "L" }, { "bgAlpha", 0.7 }, { "scale", 1.2 } }) do
-        SRT:SetSetting(kv[1], kv[2])
+        ART:SetSetting(kv[1], kv[2])
     end
     click("Advanced")
     click("Home")
@@ -485,63 +485,63 @@ step("ready check and pull use Blizzard's", function()
     assert(countdowns[1] == 10, "no countdown")
     assert(#sent == 0, "native pull should not need addon messages")
 end)
-step("pull falls back to SRT bars when refused", function()
+step("pull falls back to ART bars when refused", function()
     advance(30)
     countdownWorks = false
-    SlashCmdList.SLAUGHTERRAIDTOOLS("pull 15")
+    SlashCmdList.ALLEMANORAIDTOOLS("pull 15")
     countdownWorks = true
-    assert(SRT.Timers.Remaining("pull") == 15, "no local pull bar")
+    assert(ART.Timers.Remaining("pull") == 15, "no local pull bar")
     assert(#sent == 1 and sent[1].text:find("|TIMER|.*pull|15$"), "no TIMER message")
     assert(chatLines[#chatLines].msg == "Pull in 15", "no chat line")
     sent = {}
     advance(16)
-    assert(SRT.Timers.Remaining("pull") == nil, "pull bar did not end")
+    assert(ART.Timers.Remaining("pull") == nil, "pull bar did not end")
 end)
 step("break: bar, message, chat, end", function()
     advance(30)
     click("Break 10 min")
-    assert(SRT.Timers.Remaining("break") == 600, "no break bar")
-    assert(SRT.db.timers.running["break"].ends == GetServerTime() + 600, "break not saved for /reload")
+    assert(ART.Timers.Remaining("break") == 600, "no break bar")
+    assert(ART.db.timers.running["break"].ends == GetServerTime() + 600, "break not saved for /reload")
     assert(sent[1].text:find("|TIMER|.*break|600$"), "no TIMER message")
     assert(chatLines[#chatLines].msg:find("^Break 10 min, back at"), "no chat line")
     sent = {}
     advance(1)
-    assert(_G.SlaughterRaidToolsFrame and button("End break"), "button did not switch to End break")
+    assert(_G.AllemanoRaidToolsFrame and button("End break"), "button did not switch to End break")
     click("End break")
-    assert(SRT.Timers.Remaining("break") == nil, "break did not end")
+    assert(ART.Timers.Remaining("break") == nil, "break did not end")
     assert(chatLines[#chatLines].msg == "Break is over")
     sent = {}
 end)
 step("timers from raiders: only leader or assist", function()
-    fire("CHAT_MSG_ADDON", "SRT", "1|TIMER|7|1|1|break|300", "RAID", "Kogosh Boll")
-    assert(SRT.Timers.Remaining("break") == nil, "a normal raider started a break")
+    fire("CHAT_MSG_ADDON", "ART", "1|TIMER|7|1|1|break|300", "RAID", "Kogosh Boll")
+    assert(ART.Timers.Remaining("break") == nil, "a normal raider started a break")
     assistants.raid2 = true
-    fire("CHAT_MSG_ADDON", "SRT", "1|TIMER|8|1|1|break|300", "RAID", "Kogosh Boll")
-    assert(SRT.Timers.Remaining("break") == 300, "assistant's break ignored")
-    fire("CHAT_MSG_ADDON", "SRT", "1|TIMER|9|1|1|break|0", "RAID", "Kogosh Boll")
-    assert(SRT.Timers.Remaining("break") == nil, "break 0 did not stop it")
+    fire("CHAT_MSG_ADDON", "ART", "1|TIMER|8|1|1|break|300", "RAID", "Kogosh Boll")
+    assert(ART.Timers.Remaining("break") == 300, "assistant's break ignored")
+    fire("CHAT_MSG_ADDON", "ART", "1|TIMER|9|1|1|break|0", "RAID", "Kogosh Boll")
+    assert(ART.Timers.Remaining("break") == nil, "break 0 did not stop it")
     assistants.raid2 = nil
 end)
 step("not leader: buttons disabled, slash refused", function()
     leaderUnit = "raid2"
-    SRT.Main.Refresh()
+    ART.Main.Refresh()
     assert(button("Pull 10s").disabledReason, "pull not disabled")
     local before = #countdowns
-    SlashCmdList.SLAUGHTERRAIDTOOLS("pull")
+    SlashCmdList.ALLEMANORAIDTOOLS("pull")
     assert(#countdowns == before and chatHas("Only the raid leader"), "pull not refused")
     leaderUnit = "player"
-    SRT.Main.Refresh()
+    ART.Main.Refresh()
     assert(not button("Pull 10s").disabledReason, "pull still disabled")
 end)
 step("combat probe", function()
     click("Home")
     click("Run probe")
-    assert(SRT.Probe.CombatState() == "armed")
+    assert(ART.Probe.CombatState() == "armed")
     fire("PLAYER_REGEN_DISABLED")
     advance(2)
     deliver("Allemano Moo")
     advance(4)
-    local c = SRT.db.probe["Player-1-player"].combat
+    local c = ART.db.probe["Player-1-player"].combat
     assert(#c.snapshots == 1, "no snapshot")
     local s = c.snapshots[1]
     assert(s.health.player[1] == "<secret>", "secret health not masked")
@@ -552,9 +552,9 @@ step("combat probe", function()
     advance(3)
     assert(#c.snapshots == 2 and c.snapshots[2].extra == "610 Onyxia", "encounter snapshot missing")
     -- A normal probe afterwards keeps the combat results.
-    SlashCmdList.SLAUGHTERRAIDTOOLS("probe")
+    SlashCmdList.ALLEMANORAIDTOOLS("probe")
     advance(6)
-    assert(SRT.db.probe["Player-1-player"].combat == c, "normal probe dropped the combat probe")
+    assert(ART.db.probe["Player-1-player"].combat == c, "normal probe dropped the combat probe")
 end)
 step("resize grip saves the size, reset clears it", function()
     local grip
@@ -562,24 +562,24 @@ step("resize grip saves the size, reset clears it", function()
     assert(grip, "no resize grip")
     scripts[grip].OnMouseDown(grip, "LeftButton")
     scripts[grip].OnMouseUp(grip, "LeftButton")
-    assert(SRT.db.window.w == 800 and SRT.db.window.h == 600, "size not saved")
-    SRT.Main.ResetPosition()
-    assert(SRT.db.window.w == nil, "reset kept the size")
+    assert(ART.db.window.w == 800 and ART.db.window.h == 600, "size not saved")
+    ART.Main.ResetPosition()
+    assert(ART.db.window.w == nil, "reset kept the size")
 end)
 
 -- ---------------------------------------------------------------------------
 -- Notes
 -- ---------------------------------------------------------------------------
 
-local Notes = SRT.Notes
+local Notes = ART.Notes
 step("note text survives escaping", function()
     local s = "Line 1\nTabs\there ~ and ~n literally || pipes\n\nend~"
     assert(Notes.unescape(Notes.escape(s)) == s, "round trip changed the text")
     assert(not Notes.escape(s):find("[\n\t]"), "newline or tab left in the payload")
 end)
 step("rendering: icons, names, private blocks", function()
-    SRT:SetSetting("useClassColor", false)
-    SRT:SetSetting("accent", "C8332E")
+    ART:SetSetting("useClassColor", false)
+    ART:SetSetting("accent", "C8332E")
     local out = Notes.Render("{rt1} {skull} Kogosh Boll tanks, Whissel heals\n{p:Whissel Ljud}secret{/p}{p:allemano}mine{/p} Allemano")
     assert(out:find("UI%-RaidTargetingIcon_1") and out:find("UI%-RaidTargetingIcon_8"), "icons missing")
     assert(out:find("|cff%x+Kogosh Boll|r"), "full name not colored as one")
@@ -596,7 +596,7 @@ step("rendering: icons, names, private blocks", function()
 end)
 step("notes page: new note, edit, send solo shows it to me", function()
     sent = {}
-    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    SlashCmdList.ALLEMANORAIDTOOLS("")
     click("Notes")
     click("New note")
     local n = Notes.Selected()
@@ -604,35 +604,35 @@ step("notes page: new note, edit, send solo shows it to me", function()
     Notes.Save(n.id, "Onyxia", "{skull} Onyxia\nKogosh Boll tanks\n{p:Whissel Ljud}Whissel: dispel{/p}")
     Notes.Changed()
     inRaid = false
-    SRT.Main.Refresh()
+    ART.Main.Refresh()
     click("Show to me")
     inRaid = true
     assert(Notes.Active() and Notes.Active().title == "Onyxia", "not shown locally")
     assert(#sent == 0, "sent while solo")
-    assert(SRT.NoteWindow.IsShown(), "note window did not open")
+    assert(ART.NoteWindow.IsShown(), "note window did not open")
 end)
 local lastHash
 step("send to raid: parts, confirmations, missing list", function()
     advance(30)
-    SRT.Main.Refresh()
+    ART.Main.Refresh()
     click("Send to raid")
     assert(#sent >= 1 and sent[1].text:find("^1|NOTE|"), "no NOTE message")
-    lastHash = SRT.db.lastSent.hash
+    lastHash = ART.db.lastSent.hash
     sent = {}
-    fire("CHAT_MSG_ADDON", "SRT", "1|NACK|3|1|1|" .. lastHash, "WHISPER", "Kogosh Boll")
-    fire("CHAT_MSG_ADDON", "SRT", "1|NACK|3|1|1|999", "WHISPER", "Whissel Ljud") -- other note
+    fire("CHAT_MSG_ADDON", "ART", "1|NACK|3|1|1|" .. lastHash, "WHISPER", "Kogosh Boll")
+    fire("CHAT_MSG_ADDON", "ART", "1|NACK|3|1|1|999", "WHISPER", "Whissel Ljud") -- other note
     local s = Notes.Status()
     assert(s.have == 2 and s.total == 4, ("have %d of %d"):format(s.have, s.total))
     assert(#s.missing == 2, "missing list wrong")
     for _, m in ipairs(s.missing) do
-        if m.name == "Nobody Here" then assert(m.noSRT, "Nobody should be marked no SRT") end
-        if m.name == "Whissel Ljud" then assert(not m.noSRT, "Whissel runs SRT") end
+        if m.name == "Nobody Here" then assert(m.noART, "Nobody should be marked no ART") end
+        if m.name == "Whissel Ljud" then assert(not m.noART, "Whissel runs ART") end
     end
     click("Home") -- the card shows the status
 end)
 step("late joiner asks, the sender answers by whisper", function()
     advance(30)
-    fire("CHAT_MSG_ADDON", "SRT", "1|NREQ|4|1|1|", "RAID", "Whissel Ljud")
+    fire("CHAT_MSG_ADDON", "ART", "1|NREQ|4|1|1|", "RAID", "Whissel Ljud")
     assert(#sent >= 1 and sent[1].channel == "WHISPER" and sent[1].target == "Whissel Ljud" and sent[1].text:find("|NOTE|"), "no answer")
     sent = {}
 end)
@@ -644,16 +644,16 @@ step("receiving: only from leader or assist, confirms by whisper", function()
     local payload = "4242\t" .. Notes.escape("Nefarian") .. "\t" .. Notes.escape(text)
     -- Build the parts like a real sender would, then deliver them from Kogosh.
     local realSent = sent
-    SRT.Comm.Send("NOTE", payload)
+    ART.Comm.Send("NOTE", payload)
     advance(20)
     local parts = sent
     sent = realSent
     assert(#parts > 5, "long note should be several parts")
-    for _, m in ipairs(parts) do fire("CHAT_MSG_ADDON", "SRT", m.text, "RAID", "Kogosh Boll") end
+    for _, m in ipairs(parts) do fire("CHAT_MSG_ADDON", "ART", m.text, "RAID", "Kogosh Boll") end
     assert(Notes.Active().title == "Onyxia", "a normal raider changed the note")
     sent = {}
     assistants.raid2 = true
-    for _, m in ipairs(parts) do fire("CHAT_MSG_ADDON", "SRT", m.text, "RAID", "Kogosh Boll") end
+    for _, m in ipairs(parts) do fire("CHAT_MSG_ADDON", "ART", m.text, "RAID", "Kogosh Boll") end
     assistants.raid2 = nil
     local a = Notes.Active()
     assert(a.title == "Nefarian" and a.text == text and a.sender == "Kogosh Boll", "note not received intact")
@@ -680,16 +680,16 @@ step("post in raid chat skips private text", function()
 end)
 step("personal note, opacity and note window toggle", function()
     Notes.SetPersonal("Bring fire resistance")
-    SRT.NoteWindow.Refresh()
+    ART.NoteWindow.Refresh()
     click("Appearance")
-    SRT:SetSetting("noteAlpha", 0)
-    SRT:SetSetting("noteAlpha", 0.5)
+    ART:SetSetting("noteAlpha", 0)
+    ART:SetSetting("noteAlpha", 0.5)
     click("Home")
-    SlashCmdList.SLAUGHTERRAIDTOOLS("note")
-    assert(not SRT.NoteWindow.IsShown(), "note window did not hide")
-    assert(not SRT.db.noteWindow.shown, "hidden state not saved")
-    SlashCmdList.SLAUGHTERRAIDTOOLS("note")
-    assert(SRT.NoteWindow.IsShown(), "note window did not show")
+    SlashCmdList.ALLEMANORAIDTOOLS("note")
+    assert(not ART.NoteWindow.IsShown(), "note window did not hide")
+    assert(not ART.db.noteWindow.shown, "hidden state not saved")
+    SlashCmdList.ALLEMANORAIDTOOLS("note")
+    assert(ART.NoteWindow.IsShown(), "note window did not show")
     click("Notes")
     click("Personal note")
     click("Raid notes")
@@ -700,7 +700,7 @@ end)
 -- Invites & groups
 -- ---------------------------------------------------------------------------
 
-local Invites = SRT.Invites
+local Invites = ART.Invites
 local OXM = [[
 Aldera
 Gavztahx
@@ -755,7 +755,7 @@ step("sorting moves: set into free group, swap into full group", function()
     assert(Invites.NextMove(members, { [1] = 1, [6] = 2 }) == nil, "already sorted")
 end)
 step("sort the raid from the roster", function()
-    SRT.db.roster.text = "Kogosh\nWhissel\nNobody\nGhost\nGhost2\nAllemano"
+    ART.db.roster.text = "Kogosh\nWhissel\nNobody\nGhost\nGhost2\nAllemano"
     for _, r in ipairs(ROSTER) do r.group = 1 end
     Invites.Sort()
     advance(5)
@@ -763,24 +763,24 @@ step("sort the raid from the roster", function()
     assert(not Invites.IsSorting() and chatHas("Groups applied"), "sorting did not finish")
 end)
 step("groups page renders the roster", function()
-    SRT.db.roster.text = OXM
-    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    ART.db.roster.text = OXM
+    SlashCmdList.ALLEMANORAIDTOOLS("")
     click("Invites & groups")
     click("Groups")
     click("Invite")
 end)
 step("invite guild ranks (raid: everyone at once)", function()
     wipe(invited)
-    SRT.db.invite.ranks[2] = true
-    SRT.Main.Refresh()
+    ART.db.invite.ranks[2] = true
+    ART.Main.Refresh()
     click("Invite online (2)")
     advance(2)
     assert(#invited == 2 and invited[1] == "Aldera Stone" and invited[2] == "Gretha Vale", "invited: " .. table.concat(invited, ","))
-    SRT.db.invite.ranks[2] = nil
+    ART.db.invite.ranks[2] = nil
 end)
 step("keyword whispers", function()
     wipe(invited)
-    local s = SRT.db.invite
+    local s = ART.db.invite
     s.keywordOn, s.keyword, s.guildOnly = true, "inv", true
     fire("CHAT_MSG_WHISPER", " INV ", "Mårten Ek")
     fire("CHAT_MSG_WHISPER", "inv", "Stranger Danger")
@@ -842,33 +842,33 @@ step("party members count as in the group; the rest are listed; class colors", f
     assert(slots[2].state == "raid" and slots[2].member.group == 1 and slots[2].classFile == "DRUID", "you in the party")
     assert(#others == 1 and others[1].name == "Boogie Wonde", "party member not on the roster")
     -- Drag Boogie from "not on the roster" into group 2, then back out.
-    SRT.db.roster.text = "Aldera\nAllemano"
+    ART.db.roster.text = "Aldera\nAllemano"
     assert(Invites.AddToGroup("Boogie Wonde", 2))
-    assert(SRT.db.roster.text == "Aldera\nAllemano\n-\n-\n-\nBoogie Wonde", "add: " .. SRT.db.roster.text)
+    assert(ART.db.roster.text == "Aldera\nAllemano\n-\n-\n-\nBoogie Wonde", "add: " .. ART.db.roster.text)
     slots, others = Invites.Roster()
     assert(slots[6].state == "raid" and #others == 0, "Boogie now on the roster")
-    assert(Invites.AddToGroup("Kogosh", 1, 2) and SRT.db.roster.text:find("^Aldera\nAllemano\nKogosh"), "occupied place: first free")
-    assert(Invites.RemovePlace(6) and not SRT.db.roster.text:find("Boogie"), "take off the roster")
+    assert(Invites.AddToGroup("Kogosh", 1, 2) and ART.db.roster.text:find("^Aldera\nAllemano\nKogosh"), "occupied place: first free")
+    assert(Invites.RemovePlace(6) and not ART.db.roster.text:find("Boogie"), "take off the roster")
     UnitName, GetNumSubgroupMembers, partySize = realName, realSub, 0
     inRaid = true
 end)
 step("drag and drop: move into a group, full group, swap, empty places", function()
-    SRT.db.roster.text = "A\nB\nC\nD\nE\nF"
+    ART.db.roster.text = "A\nB\nC\nD\nE\nF"
     assert(Invites.MoveToGroup(1, 2))
-    assert(SRT.db.roster.text == "-\nB\nC\nD\nE\nF\nA", "move: " .. SRT.db.roster.text)
-    SRT.db.roster.text = "A\nB\nC\nD\nE\nF\nG\nH\nI\nJ"
+    assert(ART.db.roster.text == "-\nB\nC\nD\nE\nF\nA", "move: " .. ART.db.roster.text)
+    ART.db.roster.text = "A\nB\nC\nD\nE\nF\nG\nH\nI\nJ"
     local ok, why = Invites.MoveToGroup(1, 2)
     assert(not ok and why:find("full"), "full group accepted")
     assert(Invites.SwapPlaces(1, 12))
-    assert(SRT.db.roster.text == "-\nB\nC\nD\nE\nF\nG\nH\nI\nJ\n\n-\nA", "swap: " .. SRT.db.roster.text)
-    local slots = Invites.ParseRoster(SRT.db.roster.text)
+    assert(ART.db.roster.text == "-\nB\nC\nD\nE\nF\nG\nH\nI\nJ\n\n-\nA", "swap: " .. ART.db.roster.text)
+    local slots = Invites.ParseRoster(ART.db.roster.text)
     assert(slots[1].empty and slots[11].empty and slots[12].names[1] == "A" and slots[12].group == 3, "empty places")
     -- Moving the last name away drops the trailing empty places.
     assert(Invites.MoveToGroup(12, 1))
-    assert(SRT.db.roster.text == "A\nB\nC\nD\nE\nF\nG\nH\nI\nJ", "trim: " .. SRT.db.roster.text)
+    assert(ART.db.roster.text == "A\nB\nC\nD\nE\nF\nG\nH\nI\nJ", "trim: " .. ART.db.roster.text)
 end)
 step("drag and drop changes the plan; Apply groups moves the raid", function()
-    SRT.db.roster.text = "Kogosh\nWhissel\nNobody\n-\n-\nAllemano"
+    ART.db.roster.text = "Kogosh\nWhissel\nNobody\n-\n-\nAllemano"
     for i, r in ipairs(ROSTER) do r.group = i == 1 and 2 or 1 end
     Invites.SwapPlaces(1, 6)
     advance(2)
@@ -882,24 +882,24 @@ end)
 step("invite roster announces in guild chat", function()
     advance(100)
     wipe(invited)
-    SRT.db.roster.text = "Aldera\nGretha\nKogosh"
+    ART.db.roster.text = "Aldera\nGretha\nKogosh"
     local before = #chatLines
     Invites.InviteRoster()
     advance(2)
     assert(#invited == 2, "invited: " .. table.concat(invited, ","))
     local line = chatLines[before + 1]
     assert(line and line.channel == "GUILD" and line.msg:find("Inviting the raid roster"), "no guild announcement")
-    SRT.db.invite.announce = "OFF"
+    ART.db.invite.announce = "OFF"
     before = #chatLines
     advance(100)
     wipe(invited)
     Invites.InviteRoster()
     assert(#chatLines == before, "announced while off")
-    SRT.db.invite.announce = "GUILD"
+    ART.db.invite.announce = "GUILD"
 end)
 step("drag and drop in the page", function()
-    SRT.db.roster.text = "Kogosh\nWhissel\nNobody"
-    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    ART.db.roster.text = "Kogosh\nWhissel\nNobody"
+    SlashCmdList.ALLEMANORAIDTOOLS("")
     click("Invites & groups")
     click("Groups")
     local src, dst
@@ -914,7 +914,7 @@ step("drag and drop in the page", function()
     scripts[src].OnDragStop(src)
     rawset(dst, "IsMouseOver", nil)
     rawset(dst.box, "IsMouseOver", nil)
-    assert(SRT.db.roster.text == "-\nWhissel\nNobody\n-\n-\n-\nKogosh", "drop: " .. SRT.db.roster.text)
+    assert(ART.db.roster.text == "-\nWhissel\nNobody\n-\n-\n-\nKogosh", "drop: " .. ART.db.roster.text)
     advance(3)
     -- From "not on the roster" (you are in the raid but not listed) into place 1.
     local chip, first
@@ -929,10 +929,10 @@ step("drag and drop in the page", function()
     scripts[chip].OnDragStop(chip)
     rawset(first, "IsMouseOver", nil)
     rawset(first.box, "IsMouseOver", nil)
-    assert(SRT.db.roster.text:find("^Allemano Moo\nWhissel"), "member drop: " .. SRT.db.roster.text)
+    assert(ART.db.roster.text:find("^Allemano Moo\nWhissel"), "member drop: " .. ART.db.roster.text)
 end)
 step("roster profiles: save as, switch, auto save, delete", function()
-    local r = SRT.db.roster
+    local r = ART.db.roster
     assert(r.current and r.profiles[r.current], "no current profile after login")
     Invites.SetRosterText("Default roster")
     assert(r.profiles[r.current] == "Default roster", "not saved in the current profile")
@@ -951,7 +951,7 @@ step("roster profiles: save as, switch, auto save, delete", function()
     local names = table.concat(Invites.Profiles(), ",")
     assert(names:find("Hyjal") and names:find("Onyxia"), "profiles: " .. names)
     -- The page shows and switches them.
-    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    SlashCmdList.ALLEMANORAIDTOOLS("")
     click("Invites & groups")
     click("Groups")
     -- Delete everything: one empty profile is always left.
@@ -960,7 +960,7 @@ step("roster profiles: save as, switch, auto save, delete", function()
 end)
 step("auto assist when they join", function()
     wipe(promotedUnits)
-    SRT.db.invite.assists = "kogosh, Whissel Ljud, Somebody"
+    ART.db.invite.assists = "kogosh, Whissel Ljud, Somebody"
     fire("GROUP_ROSTER_UPDATE")
     table.sort(promotedUnits)
     assert(table.concat(promotedUnits, ",") == "raid2,raid3", "promoted: " .. table.concat(promotedUnits, ","))
@@ -972,7 +972,7 @@ end)
 -- Toolbar
 -- ---------------------------------------------------------------------------
 
-local Toolbar = SRT.Toolbar
+local Toolbar = ART.Toolbar
 local function secure(macro)
     for _, f in ipairs(allFrames) do if f._attr and f._attr.macrotext == macro then return f end end
 end
@@ -1017,16 +1017,16 @@ step("toolbar: pull, break, ready check, note", function()
     scripts[pull].OnClick(pull, "RightButton")
     assert(countdowns[#countdowns] == 0, "right-click cancels")
     click("Break")
-    assert(SRT.Timers.Remaining("break") == 600, "break not started")
+    assert(ART.Timers.Remaining("break") == 600, "break not started")
     click("Break")
-    assert(SRT.Timers.Remaining("break") == nil, "break not ended")
+    assert(ART.Timers.Remaining("break") == nil, "break not ended")
     sent = {}
-    local shown = SRT.NoteWindow.IsShown()
+    local shown = ART.NoteWindow.IsShown()
     click("Note")
-    assert(SRT.NoteWindow.IsShown() ~= shown, "note window not toggled")
+    assert(ART.NoteWindow.IsShown() ~= shown, "note window not toggled")
     click("Note")
 end)
-step("toolbar: items, combat waits, only in group, /srt bar", function()
+step("toolbar: items, combat waits, only in group, /art bar", function()
     local realCombat = InCombatLockdown
     InCombatLockdown = function() return true end
     Toolbar.SetItem("marks", false)
@@ -1050,20 +1050,20 @@ step("toolbar: items, combat waits, only in group, /srt bar", function()
     end
     Toolbar.Set("vertical", true)
     Toolbar.Set("vertical", false)
-    SRT.db.toolbar.onlyInGroup = true
+    ART.db.toolbar.onlyInGroup = true
     inRaid = false
     fire("GROUP_ROSTER_UPDATE")
     assert(not Toolbar.IsShown(), "shown outside a group")
     inRaid = true
     fire("GROUP_ROSTER_UPDATE")
     assert(Toolbar.IsShown(), "not shown in the group")
-    SRT.db.toolbar.onlyInGroup = false
-    SlashCmdList.SLAUGHTERRAIDTOOLS("bar")
-    assert(not Toolbar.IsShown(), "/srt bar did not hide")
-    SlashCmdList.SLAUGHTERRAIDTOOLS("bar")
-    assert(Toolbar.IsShown(), "/srt bar did not show")
+    ART.db.toolbar.onlyInGroup = false
+    SlashCmdList.ALLEMANORAIDTOOLS("bar")
+    assert(not Toolbar.IsShown(), "/art bar did not hide")
+    SlashCmdList.ALLEMANORAIDTOOLS("bar")
+    assert(Toolbar.IsShown(), "/art bar did not show")
     Toolbar.Menu()
-    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    SlashCmdList.ALLEMANORAIDTOOLS("")
     click("Toolbar")
 end)
 
@@ -1071,7 +1071,7 @@ end)
 -- Raid check
 -- ---------------------------------------------------------------------------
 
-local RaidCheck = SRT.RaidCheck
+local RaidCheck = ART.RaidCheck
 local function cellOf(result, name, cat)
     for _, r in ipairs(result.rows) do
         if r.name == name then return r.cells[cat] end
@@ -1102,21 +1102,21 @@ step("raid check: auras, blessings, out of range, secret values", function()
     local t = res.totals.flask
     assert(t.have == 2 and t.total == 3, ("flask totals %d/%d"):format(t.have, t.total))
 end)
-step("raid check: SRT reports for oil and durability", function()
-    fire("CHAT_MSG_ADDON", "SRT", "1|RCR|1|1|1|87|1|1800", "RAID", "Kogosh Boll")
-    fire("CHAT_MSG_ADDON", "SRT", "1|RCR|1|1|1|40|0|", "RAID", "Whissel Ljud")
+step("raid check: ART reports for oil and durability", function()
+    fire("CHAT_MSG_ADDON", "ART", "1|RCR|1|1|1|87|1|1800", "RAID", "Kogosh Boll")
+    fire("CHAT_MSG_ADDON", "ART", "1|RCR|1|1|1|40|0|", "RAID", "Whissel Ljud")
     local res = RaidCheck.Last()
     assert(cellOf(res, "Kogosh Boll", "dur").text == "87%" and cellOf(res, "Kogosh Boll", "oil").text == "30m", "Kogosh report")
     assert(cellOf(res, "Whissel Ljud", "dur").state == "no" and cellOf(res, "Whissel Ljud", "oil").state == "no", "Whissel report")
-    assert(cellOf(res, "Nobody Here", "oil").state == "unknown", "no SRT = unknown")
+    assert(cellOf(res, "Nobody Here", "oil").state == "unknown", "no ART = unknown")
 end)
 step("raid check: ready check opens its own window, reports go out, answers are shown", function()
     advance(30)
     sent = {}
-    local mainShown = _G.SlaughterRaidToolsFrame._shown
+    local mainShown = _G.AllemanoRaidToolsFrame._shown
     fire("READY_CHECK", "Allemano Moo", 30)
-    assert(SRT.ReadyWindow.IsShown(), "ready check window did not open")
-    assert(_G.SlaughterRaidToolsFrame._shown == mainShown, "the main window should not open")
+    assert(ART.ReadyWindow.IsShown(), "ready check window did not open")
+    assert(_G.AllemanoRaidToolsFrame._shown == mainShown, "the main window should not open")
     local kinds = {}
     for _, m in ipairs(sent) do kinds[#kinds + 1] = m.text:match("^1|(%u+)|") end
     local k = table.concat(kinds, ",")
@@ -1129,7 +1129,7 @@ step("raid check: ready check opens its own window, reports go out, answers are 
     local res = RaidCheck.Last()
     assert(cellOf(res, "Kogosh Boll", "ready").state == "yes" and cellOf(res, "Whissel Ljud", "ready").state == "no", "answers")
     sent = {}
-    fire("CHAT_MSG_ADDON", "SRT", "1|RCQ|9|1|1|", "RAID", "Kogosh Boll")
+    fire("CHAT_MSG_ADDON", "ART", "1|RCQ|9|1|1|", "RAID", "Kogosh Boll")
     assert(sent[1] and sent[1].text:find("|RCR|.*50|1|1200$"), "no answer to a report request")
     sent = {}
     advance(4)
@@ -1158,41 +1158,41 @@ step("ready window: timer, tooltips, live buffs, closing", function()
     fire("READY_CHECK_FINISHED")
     assert(cellOf(RaidCheck.Last(), "Nobody Here", "ready").text == "afk", "no answer should be afk")
     advance(5)
-    assert(SRT.ReadyWindow.IsShown(), "closed too early")
+    assert(ART.ReadyWindow.IsShown(), "closed too early")
     advance(11)
-    assert(not SRT.ReadyWindow.IsShown(), "did not close after 15 s")
+    assert(not ART.ReadyWindow.IsShown(), "did not close after 15 s")
     -- Everyone ready: closes after 8 s (setting), but not while the mouse is over it.
     fire("READY_CHECK", "Allemano Moo", 30)
     for i = 2, 4 do fire("READY_CHECK_CONFIRM", "raid" .. i, true) end
     fire("READY_CHECK_FINISHED")
     advance(5)
-    assert(SRT.ReadyWindow.IsShown(), "closed before 8 s")
-    local win = SRT.ReadyWindow.Frame()
+    assert(ART.ReadyWindow.IsShown(), "closed before 8 s")
+    local win = ART.ReadyWindow.Frame()
     rawset(win, "IsMouseOver", function() return true end)
     advance(10)
-    assert(SRT.ReadyWindow.IsShown(), "closed while hovered")
+    assert(ART.ReadyWindow.IsShown(), "closed while hovered")
     rawset(win, "IsMouseOver", nil)
     advance(2)
-    assert(not SRT.ReadyWindow.IsShown(), "did not close after the mouse left")
+    assert(not ART.ReadyWindow.IsShown(), "did not close after the mouse left")
     -- Off: no window.
-    SRT.db.raidcheck.popup = "off"
+    ART.db.raidcheck.popup = "off"
     fire("READY_CHECK", "Allemano Moo", 30)
-    assert(not SRT.ReadyWindow.IsShown(), "window opened while off")
+    assert(not ART.ReadyWindow.IsShown(), "window opened while off")
     fire("READY_CHECK_FINISHED")
-    SRT.db.raidcheck.popup = "all"
-    SlashCmdList.SLAUGHTERRAIDTOOLS("rcwindow")
-    assert(SRT.ReadyWindow.IsShown(), "/srt rcwindow")
+    ART.db.raidcheck.popup = "all"
+    SlashCmdList.ALLEMANORAIDTOOLS("rcwindow")
+    assert(ART.ReadyWindow.IsShown(), "/art rcwindow")
     advance(50)
-    assert(not SRT.ReadyWindow.IsShown(), "test window did not close after its timer")
+    assert(not ART.ReadyWindow.IsShown(), "test window did not close after its timer")
     auraOverride.raid2, auraOverride.raid3 = nil, nil
     GameTooltip = nil
     sent = {}
 end)
-step("raid check: buffs of far away SRT users come from their own report", function()
+step("raid check: buffs of far away ART users come from their own report", function()
     advance(30)
     sent = {}
     RaidCheck.Refresh() -- asks for reports (RCQ); our own report goes out when asked
-    fire("CHAT_MSG_ADDON", "SRT", "1|RCQ|9|1|1|", "RAID", "Kogosh Boll")
+    fire("CHAT_MSG_ADDON", "ART", "1|RCQ|9|1|1|", "RAID", "Kogosh Boll")
     local ownPayload
     for _, m in ipairs(sent) do
         local p = m.text:match("^1|RCA|%d+|%d+|%d+|(.*)$")
@@ -1201,7 +1201,7 @@ step("raid check: buffs of far away SRT users come from their own report", funct
     assert(ownPayload and ownPayload:find("17628:0"), "own buffs not reported: " .. tostring(ownPayload))
     sent = {}
     invisible.raid3 = true
-    fire("CHAT_MSG_ADDON", "SRT", "1|RCA|4|1|1|17628:3600,10157:0,99999:10", "RAID", "Whissel Ljud")
+    fire("CHAT_MSG_ADDON", "ART", "1|RCA|4|1|1|17628:3600,10157:0,99999:10", "RAID", "Whissel Ljud")
     local res = RaidCheck.Last()
     assert(cellOf(res, "Whissel Ljud", "flask").text == "60m", "reported flask: " .. cellOf(res, "Whissel Ljud", "flask").text)
     assert(cellOf(res, "Whissel Ljud", "int").state == "yes", "reported int")
@@ -1223,9 +1223,9 @@ step("raid check: post missing, only missing, categories", function()
     local all = table.concat(got, " | ")
     assert(all:find("Missing Flask %(1%): Whissel"), "post: " .. all)
     assert(not all:find("Soulstone"), "optional category posted")
-    SRT.db.raidcheck.onlyMissing = true
-    SRT.Main.Refresh()
-    SRT.db.raidcheck.onlyMissing = false
+    ART.db.raidcheck.onlyMissing = true
+    ART.Main.Refresh()
+    ART.db.raidcheck.onlyMissing = false
     click("Categories")
     click("Add category")
     local cats = RaidCheck.Categories()
@@ -1247,13 +1247,13 @@ end)
 -- Pull log
 -- ---------------------------------------------------------------------------
 
-local PullLog = SRT.PullLog
+local PullLog = ART.PullLog
 step("pull log: wipe with boss %, hidden health, kill, summary", function()
     local realHp, realMax = UnitHealth, UnitHealthMax
     local bossHp = 1000
     UnitHealth = function(u) if u == "boss1" then return bossHp end return SECRET end
     UnitHealthMax = function(u) if u == "boss1" then return 1000 end return SECRET end
-    local before = #SRT.db.pulls
+    local before = #ART.db.pulls
     -- Wipe at 45%.
     fire("ENCOUNTER_START", 1084, "Onyxia", 9, 40)
     advance(30)
@@ -1263,23 +1263,23 @@ step("pull log: wipe with boss %, hidden health, kill, summary", function()
     advance(2)
     UnitHealth = function(u) if u == "boss1" then return SECRET end return SECRET end
     fire("ENCOUNTER_END", 1084, "Onyxia", 9, 40, 0)
-    local p = SRT.db.pulls[#SRT.db.pulls]
+    local p = ART.db.pulls[#ART.db.pulls]
     assert(not p.kill and p.pct == 45 and p.duration == 67, ("wipe: pct %s, %ss"):format(tostring(p.pct), tostring(p.duration)))
     assert(chatHas("Onyxia #%d+: Wipe at 45.0%% after 1:07"), "no chat line")
     -- Health hidden the whole fight: no %.
     fire("ENCOUNTER_START", 1084, "Onyxia", 9, 40)
     advance(20)
     fire("ENCOUNTER_END", 1084, "Onyxia", 9, 40, 0)
-    p = SRT.db.pulls[#SRT.db.pulls]
+    p = ART.db.pulls[#ART.db.pulls]
     assert(p.pct == nil, "hidden health should give no %")
     -- Kill.
     UnitHealth = function(u) if u == "boss1" then return bossHp end return SECRET end
     fire("ENCOUNTER_START", 1084, "Onyxia", 9, 40)
     advance(90)
     fire("ENCOUNTER_END", 1084, "Onyxia", 9, 40, 1)
-    p = SRT.db.pulls[#SRT.db.pulls]
+    p = ART.db.pulls[#ART.db.pulls]
     assert(p.kill and p.pct == nil and p.duration == 90, "kill")
-    assert(#SRT.db.pulls == before + 3, "pulls not saved")
+    assert(#ART.db.pulls == before + 3, "pulls not saved")
     local bosses, total = PullLog.Summary()
     local ony
     for _, s in ipairs(bosses) do if s.boss == "Onyxia" then ony = s end end
@@ -1292,8 +1292,8 @@ step("pull log: nights end at 06:00, page, home, delete", function()
     assert(PullLog.NightOf(os.time({ year = 2026, month = 9, day = 29, hour = 1, min = 30 })) == "2026-09-28", "01:30 belongs to the evening before")
     assert(PullLog.NightOf(os.time({ year = 2026, month = 9, day = 29, hour = 7 })) == "2026-09-29", "07:00 is a new night")
     fire("ENCOUNTER_START", 1084, "Onyxia", 9, 40)
-    SlashCmdList.SLAUGHTERRAIDTOOLS("pulls")
-    assert(SRT.db.window.page == "pulllog", "/srt pulls")
+    SlashCmdList.ALLEMANORAIDTOOLS("pulls")
+    assert(ART.db.window.page == "pulllog", "/art pulls")
     advance(3)
     fire("ENCOUNTER_END", 1084, "Onyxia", 9, 40, 0)
     click("Home")
@@ -1308,7 +1308,7 @@ end)
 -- Visual note
 -- ---------------------------------------------------------------------------
 
-local VN = SRT.VisualNote
+local VN = ART.VisualNote
 step("visual note: encode and decode every item type", function()
     local note = { title = "Ony^ P2 ~", bg = { kind = "map", ref = 1411 }, items = {
         { k = "p", c = 2, w = 3, pts = { 0, 0, 4095, 4095, 100.4, 2000 } },
@@ -1363,7 +1363,7 @@ step("visual note: strokes are simplified and capped", function()
     assert(VN.Render(c, two) == 2 and VN.Render(c, two, 1) == 1, "skip")
 end)
 step("visual note: drawing on the page", function()
-    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    SlashCmdList.ALLEMANORAIDTOOLS("")
     click("Visual note")
     VN.Draft().items = {}
     VN.Changed()
@@ -1428,8 +1428,8 @@ step("visual note: drawing on the page", function()
     click("Current map")
     assert(VN.Draft().bg.kind == "map" and VN.Draft().bg.ref == 1411, "map background")
     -- Picture: the list from Images\list.lua; the first picture is picked.
-    assert(type(SRT.ImageList) == "table", "Images\\list.lua not loaded")
-    SRT.ImageList = { "wailing_caverns", "test_shot" }
+    assert(type(ART.ImageList) == "table", "Images\\list.lua not loaded")
+    ART.ImageList = { "wailing_caverns", "test_shot" }
     click("Picture")
     assert(VN.Draft().bg.kind == "image" and VN.Draft().bg.ref == "wailing_caverns", "first picture not picked")
     click("Current map")
@@ -1445,28 +1445,28 @@ step("visual note: sharing, who is accepted, viewer", function()
     sent = {}
     VN.Send()
     assert(sent[1] and sent[1].text:find("^1|VN|"), "not sent")
-    assert(SRT.VisualViewer.IsShown(), "viewer not shown to the sender")
-    SRT.VisualViewer.Hide()
+    assert(ART.VisualViewer.IsShown(), "viewer not shown to the sender")
+    ART.VisualViewer.Hide()
     -- Build a note as if Kogosh sent it.
     local data = VN.Encode({ title = "Kogosh plan", bg = { kind = "none" }, items = { { k = "i", n = 1, x = 10, y = 10 } } })
     sent = {}
-    SRT.Comm.Send("VN", data)
+    ART.Comm.Send("VN", data)
     advance(20)
     local parts = sent
     sent = {}
     local function deliverFrom(who)
-        for _, m in ipairs(parts) do fire("CHAT_MSG_ADDON", "SRT", m.text, "RAID", who) end
+        for _, m in ipairs(parts) do fire("CHAT_MSG_ADDON", "ART", m.text, "RAID", who) end
     end
     deliverFrom("Kogosh Boll")
     assert(select(2, VN.Received()).sender ~= "Kogosh Boll", "accepted from a normal raider")
-    SRT.db.settings.vnAcceptEveryone = true
+    ART.db.settings.vnAcceptEveryone = true
     deliverFrom("Kogosh Boll")
     local note, info = VN.Received()
     assert(info.sender == "Kogosh Boll" and note.title == "Kogosh plan", "not accepted with 'everyone'")
-    assert(SRT.VisualViewer.IsShown(), "viewer did not open")
-    SRT.db.settings.vnAcceptEveryone = false
-    SlashCmdList.SLAUGHTERRAIDTOOLS("vn")
-    assert(not SRT.VisualViewer.IsShown(), "/srt vn did not hide")
+    assert(ART.VisualViewer.IsShown(), "viewer did not open")
+    ART.db.settings.vnAcceptEveryone = false
+    SlashCmdList.ALLEMANORAIDTOOLS("vn")
+    assert(not ART.VisualViewer.IsShown(), "/art vn did not hide")
     -- Too big: refused before sending.
     local big = VN.Draft()
     big.items = {}
@@ -1503,33 +1503,33 @@ end)
 step("auto log: dungeons only when chosen; a manual log is left alone", function()
     zoneIn(true, "party", "Ragefire Chasm")
     assert(not logging, "logged a dungeon without the setting")
-    SRT.db.settings.logDungeons = true
+    ART.db.settings.logDungeons = true
     zoneIn(true, "party", "Ragefire Chasm")
     assert(logging, "dungeon not logged with the setting")
-    SRT.db.settings.logDungeons = false
+    ART.db.settings.logDungeons = false
     zoneIn(false, "none", "Orgrimmar")
-    -- Started by hand outside: SRT does not stop it.
-    SlashCmdList.SLAUGHTERRAIDTOOLS("log")
-    assert(logging, "/srt log did not start it")
+    -- Started by hand outside: ART does not stop it.
+    SlashCmdList.ALLEMANORAIDTOOLS("log")
+    assert(logging, "/art log did not start it")
     zoneIn(true, "raid", "Onyxia's Lair")
     zoneIn(false, "none", "Orgrimmar")
-    assert(logging, "SRT stopped a log it did not start")
-    SlashCmdList.SLAUGHTERRAIDTOOLS("log")
-    assert(not logging, "/srt log did not stop it")
-    SRT.db.settings.autoLog = false
+    assert(logging, "ART stopped a log it did not start")
+    SlashCmdList.ALLEMANORAIDTOOLS("log")
+    assert(not logging, "/art log did not stop it")
+    ART.db.settings.autoLog = false
     zoneIn(true, "raid", "Onyxia's Lair")
     assert(not logging, "logged with auto logging off")
-    SRT.db.settings.autoLog = true
+    ART.db.settings.autoLog = true
     zoneIn(false, "none", "Kalimdor")
-    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    SlashCmdList.ALLEMANORAIDTOOLS("")
     click("Combat log")
 end)
 step("mouseover marking: secure button, Ctrl + wheel, icon order", function()
-    local btn = _G.SlaughterRaidToolsMarkButton
-    SlashCmdList.SLAUGHTERRAIDTOOLS("markdebug")
+    local btn = _G.AllemanoRaidToolsMarkButton
+    SlashCmdList.ALLEMANORAIDTOOLS("markdebug")
     assert(btn and btn._template == "SecureActionButtonTemplate" and btn._attr.type == "macro", "no secure mark button")
     assert(btn._attr.useOnKeyDown == true, "the mark button must run on key down (a wheel notch has no up)")
-    assert(overrideKeys["CTRL-MOUSEWHEELUP"] == "SlaughterRaidToolsMarkButton", "Ctrl + wheel not bound")
+    assert(overrideKeys["CTRL-MOUSEWHEELUP"] == "AllemanoRaidToolsMarkButton", "Ctrl + wheel not bound")
     -- Run the secure snippet like the game does before each press.
     local wrapper
     for _, f in ipairs(allFrames) do if f._wrapped and f._wrapped.target == btn then wrapper = f._wrapped end end
@@ -1543,33 +1543,33 @@ step("mouseover marking: secure button, Ctrl + wheel, icon order", function()
     assert(table.concat(seen, ",") == "8,7,6,5,4,3,2,1,8", "order: " .. table.concat(seen, ","))
     assert(btn._attr.macrotext:find("^/tm %[@mouseover,exists%] "), "macro: " .. btn._attr.macrotext)
     -- Leave out the cross, start over.
-    SRT.Marks.Toggle(7)
+    ART.Marks.Toggle(7)
     press(btn); press(btn)
     assert(btn._attr.macrotext:match("(%d)$") == "6", "cross should be skipped")
     -- In combat nothing changes until it ends.
     local realCombat = InCombatLockdown
     InCombatLockdown = function() return true end
-    SRT.Marks.Toggle(7)
-    assert(btn._attr["srt-count"] == 7, "changed in combat")
+    ART.Marks.Toggle(7)
+    assert(btn._attr["art-count"] == 7, "changed in combat")
     InCombatLockdown = realCombat
     fire("PLAYER_REGEN_ENABLED")
-    assert(btn._attr["srt-count"] == 8, "not applied after combat")
-    SRT.db.marks.wheel = false
-    SRT.Marks.Apply()
+    assert(btn._attr["art-count"] == 8, "not applied after combat")
+    ART.db.marks.wheel = false
+    ART.Marks.Apply()
     assert(next(overrideKeys) == nil, "wheel keys not removed")
-    SRT.db.marks.wheel = true
-    SRT.Marks.Apply()
-    SRT.Marks.MoveUp(2)
-    assert(SRT.db.marks.order[1] == 7, "move up")
-    SRT.Marks.Reset()
-    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    ART.db.marks.wheel = true
+    ART.Marks.Apply()
+    ART.Marks.MoveUp(2)
+    assert(ART.db.marks.order[1] == 7, "move up")
+    ART.Marks.Reset()
+    SlashCmdList.ALLEMANORAIDTOOLS("")
     click("Marks")
     click("Start over")
 end)
 step("mob lists: each mob gets the next free icon of its list, locked, reset after a fight", function()
-    local M = SRT.Marks
-    local btn = _G.SlaughterRaidToolsMarkButton
-    SlashCmdList.SLAUGHTERRAIDTOOLS("markdebug")
+    local M = ART.Marks
+    local btn = _G.AllemanoRaidToolsMarkButton
+    SlashCmdList.ALLEMANORAIDTOOLS("markdebug")
     local wrapper
     for _, f in ipairs(allFrames) do if f._wrapped and f._wrapped.target == btn then wrapper = f._wrapped end end
     local press = assert(load("local self = ...\n" .. wrapper.pre))
@@ -1593,7 +1593,7 @@ step("mob lists: each mob gets the next free icon of its list, locked, reset aft
     M.SetSlot("Tempest Keep", "Phoenix-Hawk", 4, 5)
     M.AddMob("Bloodwarder Marshal")
     M.SetSlot("Tempest Keep", "Bloodwarder Marshal", 1, 6)
-    assert(table.concat(SRT.db.marks.mobs["Tempest Keep"]["Phoenix-Hawk"], ",") == "8,7,6,5", "hawk list")
+    assert(table.concat(ART.db.marks.mobs["Tempest Keep"]["Phoenix-Hawk"], ",") == "8,7,6,5", "hawk list")
     M.StartOver()
     -- A press the game ignored (no icon, no RAID_TARGET_UPDATE) must not use up the list.
     local ghost = { name = "Phoenix-Hawk" }
@@ -1620,26 +1620,26 @@ step("mob lists: each mob gets the next free icon of its list, locked, reset aft
     assert(scrollOver(h4) == 8, "not reset after the fight")
     -- In a fight the general order is used (the lists need out-of-combat reading).
     fire("PLAYER_REGEN_DISABLED")
-    assert(btn._attr["srt-fixed"] == 0, "not back to the general order in combat")
+    assert(btn._attr["art-fixed"] == 0, "not back to the general order in combat")
     -- Lock off: a marked mob gets the next icon again.
-    SRT.db.marks.lock = false
+    ART.db.marks.lock = false
     M.StartOver()
     local h5 = { name = "Phoenix-Hawk", icon = 3 }
     assert(scrollOver(h5) == 8, "lock off: should re-mark")
-    SRT.db.marks.lock = true
+    ART.db.marks.lock = true
     -- Page and removal.
-    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    SlashCmdList.ALLEMANORAIDTOOLS("")
     click("Marks")
     M.SetSlot("Tempest Keep", "Phoenix-Hawk", 4, nil)
-    assert(#SRT.db.marks.mobs["Tempest Keep"]["Phoenix-Hawk"] == 3, "slot removal")
+    assert(#ART.db.marks.mobs["Tempest Keep"]["Phoenix-Hawk"] == 3, "slot removal")
     M.RemoveMob("Tempest Keep", "Phoenix-Hawk")
     M.RemoveMob("Tempest Keep", "Bloodwarder Marshal")
-    assert(SRT.db.marks.mobs["Tempest Keep"] == nil, "empty zone kept")
+    assert(ART.db.marks.mobs["Tempest Keep"] == nil, "empty zone kept")
     mouseover = nil
     instance[1], instance[2], instance[3] = false, "none", "Kalimdor"
 end)
 step("own timers: presets, shared as leader, received from an assistant, stop", function()
-    local T = SRT.Timers
+    local T = ART.Timers
     advance(30)
     sent = {}
     assert(T.AddPreset("Flasks", 60) and not T.AddPreset("", 5) and not T.AddPreset("X", "abc"), "add preset")
@@ -1654,13 +1654,13 @@ step("own timers: presets, shared as leader, received from an assistant, stop", 
     sent = {}
     -- From an assistant.
     assistants.raid2 = true
-    fire("CHAT_MSG_ADDON", "SRT", "1|TIMER|4|1|1|c|120|Soulstone", "RAID", "Kogosh Boll")
+    fire("CHAT_MSG_ADDON", "ART", "1|TIMER|4|1|1|c|120|Soulstone", "RAID", "Kogosh Boll")
     assistants.raid2 = nil
     assert(near(T.Remaining("c:Soulstone"), 120), "assistant timer not shown")
     local running = T.Running()
     assert(#running >= 2 and running[1].label == "Soulstone", "running list / order")
     -- The page: start a preset by its button, stop from the list.
-    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    SlashCmdList.ALLEMANORAIDTOOLS("")
     click("Timers")
     click("Flasks  60:00")
     assert(near(T.Remaining("c:Flasks"), 3600), "preset button did not start it")
@@ -1673,37 +1673,37 @@ step("own timers: presets, shared as leader, received from an assistant, stop", 
     click("Home")
 end)
 step("launcher button: shown, clicks, hide and show", function()
-    assert(SRT.Launcher.IsShown(), "launcher not shown after login")
+    assert(ART.Launcher.IsShown(), "launcher not shown after login")
     local btn
     for f, s in pairs(scripts) do if s.OnClick and s.OnDragStart and f.icon and not f.text then btn = f end end
     assert(btn, "launcher button not found")
-    local wasMain = _G.SlaughterRaidToolsFrame._shown
+    local wasMain = _G.AllemanoRaidToolsFrame._shown
     scripts[btn].OnClick(btn, "LeftButton")
-    assert(_G.SlaughterRaidToolsFrame._shown ~= wasMain, "left-click did not toggle SRT")
+    assert(_G.AllemanoRaidToolsFrame._shown ~= wasMain, "left-click did not toggle ART")
     scripts[btn].OnClick(btn, "LeftButton") -- back as it was
-    local wasNote = SRT.NoteWindow.IsShown()
+    local wasNote = ART.NoteWindow.IsShown()
     scripts[btn].OnClick(btn, "RightButton")
-    assert(SRT.NoteWindow.IsShown() ~= wasNote, "right-click did not toggle the note window")
+    assert(ART.NoteWindow.IsShown() ~= wasNote, "right-click did not toggle the note window")
     scripts[btn].OnEnter(btn)
     scripts[btn].OnLeave(btn)
-    SlashCmdList.SLAUGHTERRAIDTOOLS("button")
-    assert(not SRT.Launcher.IsShown(), "/srt button did not hide it")
-    SlashCmdList.SLAUGHTERRAIDTOOLS("button")
-    assert(SRT.Launcher.IsShown(), "/srt button did not show it")
+    SlashCmdList.ALLEMANORAIDTOOLS("button")
+    assert(not ART.Launcher.IsShown(), "/art button did not hide it")
+    SlashCmdList.ALLEMANORAIDTOOLS("button")
+    assert(ART.Launcher.IsShown(), "/art button did not show it")
 end)
 step("close window", function()
-    SlashCmdList.SLAUGHTERRAIDTOOLS("")
-    assert(not _G.SlaughterRaidToolsFrame._shown, "window did not close")
+    SlashCmdList.ALLEMANORAIDTOOLS("")
+    assert(not _G.AllemanoRaidToolsFrame._shown, "window did not close")
 end)
 
 step("comm debug toggle", function()
-    SlashCmdList.SLAUGHTERRAIDTOOLS("comm debug")
-    SRT.Comm.Send("TEST", "x")
-    SlashCmdList.SLAUGHTERRAIDTOOLS("comm debug")
+    SlashCmdList.ALLEMANORAIDTOOLS("comm debug")
+    ART.Comm.Send("TEST", "x")
+    SlashCmdList.ALLEMANORAIDTOOLS("comm debug")
 end)
-step("errors", function() SlashCmdList.SLAUGHTERRAIDTOOLS("errors") end)
+step("errors", function() SlashCmdList.ALLEMANORAIDTOOLS("errors") end)
 step("no addon errors recorded", function()
-    assert(#SRT.errors == 0, "recorded: " .. tostring(SRT.errors[1] and SRT.errors[1].msg))
+    assert(#ART.errors == 0, "recorded: " .. tostring(ART.errors[1] and ART.errors[1].msg))
 end)
 
 print(#errors == 0 and "ALL OK" or (#errors .. " error(s)"))

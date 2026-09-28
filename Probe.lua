@@ -1,11 +1,11 @@
 -- Probe (step 0): records what the WoW Forever client really offers for the raid tools
--- SRT will build: which APIs and events exist, how names look and whether addon messages
--- arrive. Saved to SlaughterRaidToolsDB.probe so it can be read from the SavedVariables
+-- ART will build: which APIs and events exist, how names look and whether addon messages
+-- arrive. Saved to AllemanoRaidToolsDB.probe so it can be read from the SavedVariables
 -- file after /reload. Never calls protected functions.
-local _, SRT = ...
+local _, ART = ...
 
 local Probe = {}
-SRT.Probe = Probe
+ART.Probe = Probe
 
 -- A value as a string; secret values (WoW Forever in combat) are never touched.
 local function str(v)
@@ -114,17 +114,17 @@ end
 
 local function probeGroup()
     local out = {
-        channel = tostring(SRT.Compat.GroupChannel()),
+        channel = tostring(ART.Compat.GroupChannel()),
         inRaid = try(IsInRaid), inGroup = try(IsInGroup),
         members = try(GetNumGroupMembers),
-        leaderOrAssist = SRT.Compat.IsLeaderOrAssist(),
+        leaderOrAssist = ART.Compat.IsLeaderOrAssist(),
         units = {},
     }
     local units = { "player" }
     for i = 1, 4 do units[#units + 1] = (IsInRaid() and "raid" or "party") .. i end
     for _, unit in ipairs(units) do
         out.units[unit] = {
-            name = try(UnitName, unit), full = SRT.Compat.UnitFullName(unit),
+            name = try(UnitName, unit), full = ART.Compat.UnitFullName(unit),
             guid = try(UnitGUID, unit), roster = IsInRaid() and try(GetRaidRosterInfo, tonumber(unit:match("%d+")) or 1) or nil,
             position = try(UnitPosition, unit),
             map = C_Map and try(C_Map.GetBestMapForUnit, unit) or nil,
@@ -137,34 +137,34 @@ local probeAuras, groupUnits -- below, with the combat probe
 
 -- Addon messages: whisper ourselves and send to the group, record exactly what arrives.
 local function runProbe()
-    local key = UnitGUID("player") or SRT.Compat.PlayerName()
+    local key = UnitGUID("player") or ART.Compat.PlayerName()
     local result = {
-        t = time(), version = SRT.version, build = pack(GetBuildInfo()),
-        playerName = SRT.Compat.PlayerName(), unitName = try(UnitName, "player"),
+        t = time(), version = ART.version, build = pack(GetBuildInfo()),
+        playerName = ART.Compat.PlayerName(), unitName = try(UnitName, "player"),
         unitFullName = try(UnitFullName, "player"), realm = try(GetNormalizedRealmName),
         apis = probeApis(), events = probeEvents(), addons = probeAddons(), group = probeGroup(),
-        comm = { prefixResult = tostring(SRT.Comm.prefixResult), sent = {}, received = {} },
+        comm = { prefixResult = tostring(ART.Comm.prefixResult), sent = {}, received = {} },
         auras = {},
     }
     for _, unit in ipairs(groupUnits()) do result.auras[unit] = probeAuras(unit, 6) end
     local comm = result.comm
-    SRT.Comm.rawListener = function(text, channel, sender, target)
+    ART.Comm.rawListener = function(text, channel, sender, target)
         comm.received[#comm.received + 1] = pack(text, channel, sender, target)
     end
     local function send(label, channel, target)
-        comm.sent[label] = try(C_ChatInfo.SendAddonMessage, SRT.Comm.PREFIX, "probe " .. label, channel, target)
+        comm.sent[label] = try(C_ChatInfo.SendAddonMessage, ART.Comm.PREFIX, "probe " .. label, channel, target)
     end
     send("whisperFirst", "WHISPER", (UnitName("player")))
-    send("whisperFull", "WHISPER", SRT.Compat.PlayerName())
-    if SRT.Compat.GroupChannel() then send("group", SRT.Compat.GroupChannel()) end
+    send("whisperFull", "WHISPER", ART.Compat.PlayerName())
+    if ART.Compat.GroupChannel() then send("group", ART.Compat.GroupChannel()) end
     send("guild", "GUILD")
-    SRT:Print("Probing for 5 seconds...")
+    ART:Print("Probing for 5 seconds...")
     C_Timer.After(5, function()
-        SRT.Comm.rawListener = nil
-        SRT.db.probe = SRT.db.probe or {}
-        result.combat = SRT.db.probe[key] and SRT.db.probe[key].combat -- keep the combat probe
-        SRT.db.probe[key] = result
-        SRT:Print(("Probe saved (%d addon messages received). /reload, then send the SavedVariables file SlaughterRaidTools.lua.")
+        ART.Comm.rawListener = nil
+        ART.db.probe = ART.db.probe or {}
+        result.combat = ART.db.probe[key] and ART.db.probe[key].combat -- keep the combat probe
+        ART.db.probe[key] = result
+        ART:Print(("Probe saved (%d addon messages received). /reload, then send the SavedVariables file AllemanoRaidTools.lua.")
             :format(#comm.received))
     end)
 end
@@ -217,7 +217,7 @@ local function askNamespace(tbl)
 end
 
 -- ---------------------------------------------------------------------------
--- Combat probe: /srt probe combat arms it; each fight start (and boss pull) records a
+-- Combat probe: /art probe combat arms it; each fight start (and boss pull) records a
 -- snapshot two seconds in: are addon messages restricted, are auras, health and
 -- cooldowns secret. Saved per character in probe[guid].combat.
 -- ---------------------------------------------------------------------------
@@ -225,18 +225,18 @@ end
 local MAX_SNAPSHOTS = 6
 
 local function combatData()
-    local key = UnitGUID("player") or SRT.Compat.PlayerName()
-    SRT.db.probe = SRT.db.probe or {}
-    SRT.db.probe[key] = SRT.db.probe[key] or {}
-    local p = SRT.db.probe[key]
+    local key = UnitGUID("player") or ART.Compat.PlayerName()
+    ART.db.probe = ART.db.probe or {}
+    ART.db.probe[key] = ART.db.probe[key] or {}
+    local p = ART.db.probe[key]
     p.combat = p.combat or { snapshots = {} }
     return p.combat
 end
 
 function Probe.CombatState()
-    if not SRT.db then return nil end
-    local key = UnitGUID("player") or SRT.Compat.PlayerName()
-    local c = SRT.db.probe and SRT.db.probe[key] and SRT.db.probe[key].combat
+    if not ART.db then return nil end
+    local key = UnitGUID("player") or ART.Compat.PlayerName()
+    local c = ART.db.probe and ART.db.probe[key] and ART.db.probe[key].combat
     if not c then return nil end
     if c.armed then return "armed" end
     return #c.snapshots > 0 and "done" or nil
@@ -262,42 +262,42 @@ local function snapshot(trigger, extra)
     }
     for _, unit in ipairs(groupUnits()) do s.auras[unit] = probeAuras(unit, 3) end
     -- Can we send an addon message right now, and does it arrive?
-    SRT.Comm.rawListener = function(text, channel, sender)
+    ART.Comm.rawListener = function(text, channel, sender)
         s.received[#s.received + 1] = pack(text, channel, sender)
     end
-    local channel = SRT.Compat.GroupChannel()
-    if channel then s.sent.group = try(C_ChatInfo.SendAddonMessage, SRT.Comm.PREFIX, "probe combat", channel) end
-    s.sent.whisper = try(C_ChatInfo.SendAddonMessage, SRT.Comm.PREFIX, "probe combat", "WHISPER", SRT.Compat.PlayerName())
+    local channel = ART.Compat.GroupChannel()
+    if channel then s.sent.group = try(C_ChatInfo.SendAddonMessage, ART.Comm.PREFIX, "probe combat", channel) end
+    s.sent.whisper = try(C_ChatInfo.SendAddonMessage, ART.Comm.PREFIX, "probe combat", "WHISPER", ART.Compat.PlayerName())
     C_Timer.After(3, function()
-        SRT.Comm.rawListener = nil
+        ART.Comm.rawListener = nil
         s.receivedCount = #s.received
     end)
     tinsert(c.snapshots, s)
-    SRT:Print(("Combat probe: snapshot %d/%d (%s)."):format(#c.snapshots, MAX_SNAPSHOTS, trigger))
+    ART:Print(("Combat probe: snapshot %d/%d (%s)."):format(#c.snapshots, MAX_SNAPSHOTS, trigger))
     if #c.snapshots >= MAX_SNAPSHOTS then
         c.armed = nil
-        SRT:Print("Combat probe done. /reload and send the SavedVariables file SlaughterRaidTools.lua.")
+        ART:Print("Combat probe done. /reload and send the SavedVariables file AllemanoRaidTools.lua.")
     end
-    if SRT.Main then SRT.Main.Refresh() end
+    if ART.Main then ART.Main.Refresh() end
 end
 
 function Probe.ArmCombat()
     local c = combatData()
     c.armed = true
     c.snapshots = {}
-    SRT:Print("Combat probe armed: fight something (a dungeon boss is best). Up to " .. MAX_SNAPSHOTS .. " fights are recorded.")
+    ART:Print("Combat probe armed: fight something (a dungeon boss is best). Up to " .. MAX_SNAPSHOTS .. " fights are recorded.")
 end
 
-SRT:RegisterEvent("PLAYER_REGEN_DISABLED", function()
+ART:RegisterEvent("PLAYER_REGEN_DISABLED", function()
     if Probe.CombatState() ~= "armed" then return end
-    C_Timer.After(2, function() SRT:Call("combat probe", snapshot, "combat") end)
+    C_Timer.After(2, function() ART:Call("combat probe", snapshot, "combat") end)
 end)
-SRT:RegisterEvent("ENCOUNTER_START", function(_, encounterID, name)
+ART:RegisterEvent("ENCOUNTER_START", function(_, encounterID, name)
     if Probe.CombatState() ~= "armed" then return end
     local extra = str(encounterID) .. " " .. str(name)
-    C_Timer.After(2, function() SRT:Call("combat probe", snapshot, "encounter", extra) end)
+    C_Timer.After(2, function() ART:Call("combat probe", snapshot, "encounter", extra) end)
 end)
 
-SRT:AddSlashCommand("probe", function(arg)
+ART:AddSlashCommand("probe", function(arg)
     if strlower(arg or "") == "combat" then Probe.ArmCombat() else runProbe() end
-end, "record what this client supports (then /reload); /srt probe combat waits for fights")
+end, "record what this client supports (then /reload); /art probe combat waits for fights")

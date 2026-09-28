@@ -1,14 +1,14 @@
 -- Settings pages in the main window: Appearance (accent like Hush, font, sizes) and
 -- Advanced (announcements, debug, probe). Every change applies at once.
-local _, SRT = ...
+local _, ART = ...
 
-local Theme, W = SRT.Theme, SRT.Widgets
-local Main = SRT.Main
+local Theme, W = ART.Theme, ART.Widgets
+local Main = ART.Main
 
 local LABEL_X, CONTROL_X, ROW = 26, 230, 38
 
 local function set(key, value)
-    SRT:SetSetting(key, value)
+    ART:SetSetting(key, value)
     Main.Refresh()
 end
 
@@ -38,7 +38,7 @@ local function newPage(page)
     end
     function p:Toggle(label, help, key)
         local t = W.Toggle(page, function(on) set(key, on) end)
-        t.refresh = function() t:Set(SRT.db.settings[key]) end
+        t.refresh = function() t:Set(ART.db.settings[key]) end
         self:Row(label, help, t, 6)
         return t
     end
@@ -50,7 +50,7 @@ end
 
 Main.RegisterPage("appearance", function(page)
     local p = newPage(page)
-    local s = SRT.db.settings
+    local s = ART.db.settings
 
     p:Heading("Accent color")
     local swatches = CreateFrame("Frame", nil, page)
@@ -58,7 +58,7 @@ Main.RegisterPage("appearance", function(page)
     swatches.list = {}
     local function addSwatch(hex, tooltip)
         local sw = W.Swatch(swatches, hex, function()
-            SRT:SetSetting("useClassColor", false)
+            ART:SetSetting("useClassColor", false)
             set("accent", hex)
             p:Refresh()
         end, tooltip)
@@ -66,7 +66,7 @@ Main.RegisterPage("appearance", function(page)
         sw:SetPoint("LEFT", #swatches.list * 28, 0)
         swatches.list[#swatches.list + 1] = sw
     end
-    addSwatch(Theme.DEFAULT_ACCENT, "SRT (default)")
+    addSwatch(Theme.DEFAULT_ACCENT, "ART (default)")
     for _, class in ipairs(Theme.CLASS_ORDER) do
         local hex = Theme.ClassHex(class)
         if hex then addSwatch(hex, LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class] or class) end
@@ -118,7 +118,7 @@ end)
 
 -- Toolbar: options on the left, what the bar shows on the right.
 Main.RegisterPage("toolbar", function(page)
-    local t = SRT.db.toolbar
+    local t = ART.db.toolbar
     local controls = {}
     local function heading(text, x, y)
         local fs = W.Text(page, -2, "text")
@@ -141,13 +141,13 @@ Main.RegisterPage("toolbar", function(page)
     local y = 60
     for _, o in ipairs({ { "Show the toolbar", "shown" }, { "Only in a group", "onlyInGroup" },
         { "Lock position", "locked" }, { "Vertical", "vertical" } }) do
-        toggle(o[1], LEFT, y, function() return t[o[2]] end, function(on) SRT.Toolbar.Set(o[2], on) end)
+        toggle(o[1], LEFT, y, function() return t[o[2]] end, function(on) ART.Toolbar.Set(o[2], on) end)
         y = y + 34
     end
     local rowsLabel = W.Text(page, 0, "text")
     rowsLabel:SetPoint("TOPLEFT", LEFT, -(y + 5))
     local rows = W.Segment(page, { { value = 1, label = "1" }, { value = 2, label = "2" }, { value = 3, label = "3" } },
-        function(v) SRT.Toolbar.Set("rows", v) end)
+        function(v) ART.Toolbar.Set("rows", v) end)
     rows:SetPoint("TOPLEFT", LEFT + 80, -y)
     rows.refresh = function()
         rows:Set(t.rows or 1)
@@ -159,7 +159,7 @@ Main.RegisterPage("toolbar", function(page)
     scaleLabel:SetPoint("TOPLEFT", LEFT, -(y + 4))
     scaleLabel:SetText("Size")
     local scale = W.Slider(page, 70, 150, 5, 140, function(v) return v .. "%" end,
-        function(v) SRT.Toolbar.Set("scale", v / 100) end)
+        function(v) ART.Toolbar.Set("scale", v / 100) end)
     scale:SetPoint("TOPLEFT", LEFT + 50, -(y + 6))
     scale.refresh = function() scale:Set(floor((t.scale or 1) * 100 + 0.5)) end
     controls[#controls + 1] = scale
@@ -170,12 +170,12 @@ Main.RegisterPage("toolbar", function(page)
     help:SetWidth(280)
     help:SetJustifyH("LEFT")
     help:SetText("Drag the colored handle to move the bar, right-click it for these options. "
-        .. "/srt bar shows or hides it. In combat the bar cannot change; changes wait for combat to end.")
+        .. "/art bar shows or hides it. In combat the bar cannot change; changes wait for combat to end.")
 
     heading("Show on the toolbar", RIGHT, 28)
     y = 60
-    for _, item in ipairs(SRT.Toolbar.ITEMS) do
-        toggle(item[2], RIGHT, y, function() return t.items[item[1]] end, function(on) SRT.Toolbar.SetItem(item[1], on) end)
+    for _, item in ipairs(ART.Toolbar.ITEMS) do
+        toggle(item[2], RIGHT, y, function() return t.items[item[1]] end, function(on) ART.Toolbar.SetItem(item[1], on) end)
         y = y + 34
     end
 
@@ -194,10 +194,10 @@ Main.RegisterPage("combatlog", function(page)
     p:Toggle("Say it in chat", "A line in your chat when the log starts or stops.", "logAnnounce")
 
     p:Heading("Now")
-    local state = W.Button(page, "Start", nil, function() SRT.CombatLog.Toggle() end, 26)
+    local state = W.Button(page, "Start", nil, function() ART.CombatLog.Toggle() end, 26)
     p:Row("Combat log", "The file is written to World of Warcraft\\_classic_beta_\\Logs.", state)
     local refreshState = function()
-        local on = SRT.CombatLog.IsLogging()
+        local on = ART.CombatLog.IsLogging()
         state:SetLabel(on and "Stop" or "Start")
         state.tooltip = on and "The combat log is running." or "The combat log is off."
     end
@@ -211,7 +211,7 @@ Main.RegisterPage("advanced", function(page)
     local p = newPage(page)
 
     p:Heading("Raid chat")
-    p:Toggle("Announce breaks", "Posts \"Break 10 min, back at 21:14\" for raiders without SRT.", "announceBreak")
+    p:Toggle("Announce breaks", "Posts \"Break 10 min, back at 21:14\" for raiders without ART.", "announceBreak")
 
     p:Heading("Notes")
     p:Toggle("Open on new note", "Shows the note window when the raid leader sends a note.", "noteAutoShow")
@@ -220,20 +220,20 @@ Main.RegisterPage("advanced", function(page)
     p:Toggle("Open on new visual note", "Shows the drawing when someone shares one.", "vnAutoShow")
 
     p:Heading("Development")
-    p:Toggle("Addon message debug", "Prints every SRT message sent and received in chat.", "debugComm")
-    local probe = W.Button(page, "Run", nil, function() SlashCmdList.SLAUGHTERRAIDTOOLS("probe") end, 26)
+    p:Toggle("Addon message debug", "Prints every ART message sent and received in chat.", "debugComm")
+    local probe = W.Button(page, "Run", nil, function() SlashCmdList.ALLEMANORAIDTOOLS("probe") end, 26)
     p:Row("Client probe", "Records what WoW Forever supports. /reload afterwards.", probe)
     local combat = W.Button(page, "Arm", nil, function()
-        SRT.Probe.ArmCombat()
+        ART.Probe.ArmCombat()
         Main.Refresh()
     end, 26)
     p:Row("Combat probe", "Records the next fights (a dungeon boss is best).", combat)
-    local version = W.Button(page, "Check", nil, function() SRT.Version.Check() end, 26)
-    p:Row("Version check", "Who in the group runs which SRT version.", version)
-    local errors = W.Button(page, "Show", nil, function() SlashCmdList.SLAUGHTERRAIDTOOLS("errors") end, 26)
-    p:Row("Errors", "Lua errors are hidden on WoW Forever; SRT keeps the last 10.", errors)
+    local version = W.Button(page, "Check", nil, function() ART.Version.Check() end, 26)
+    p:Row("Version check", "Who in the group runs which ART version.", version)
+    local errors = W.Button(page, "Show", nil, function() SlashCmdList.ALLEMANORAIDTOOLS("errors") end, 26)
+    p:Row("Errors", "Lua errors are hidden on WoW Forever; ART keeps the last 10.", errors)
 
     return function() p:Refresh() end
 end)
 
-SRT:AddSlashCommand("settings", function() Main.Toggle("appearance") end, "open the settings")
+ART:AddSlashCommand("settings", function() Main.Toggle("appearance") end, "open the settings")

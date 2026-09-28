@@ -1,15 +1,15 @@
 -- Raid check: who has which consumables and buffs, from the group's auras plus what every
--- SRT user reports about themselves (weapon oil and durability cannot be read for others).
+-- ART user reports about themselves (weapon oil and durability cannot be read for others).
 -- What counts is a list of editable categories (the Forever meta is not known yet):
 --   { id, short, name, kind, match = "Flask of, Supreme Power, 17628", optional, on }
 -- kind "aura" (default): has a buff whose name contains one of the words, or whose spell
 -- ID is listed. Special kinds: "ready" (ready check answer), "weapon" (temporary weapon
 -- enchant, self-reported), "durability" (lowest item %, self-reported), "blessings"
 -- (every matching buff, shown as short names).
-local _, SRT = ...
+local _, ART = ...
 
 local RaidCheck = {}
-SRT.RaidCheck = RaidCheck
+ART.RaidCheck = RaidCheck
 
 local MAX_AURAS = 40
 
@@ -41,10 +41,10 @@ RaidCheck.DEFAULTS = {
 local listeners = {}
 function RaidCheck.OnChange(fn) listeners[#listeners + 1] = fn end
 local function changed()
-    for _, fn in ipairs(listeners) do SRT:Call("raid check listener", fn) end
+    for _, fn in ipairs(listeners) do ART:Call("raid check listener", fn) end
 end
 
-local function db() return SRT.db.raidcheck end
+local function db() return ART.db.raidcheck end
 
 function RaidCheck.Categories() return db().categories end
 
@@ -138,18 +138,18 @@ local function readAuras(unit)
 end
 
 local ready = {}   -- [nameKey] = true / false (ready check answer)
-local reports = {} -- [nameKey] = { dur, mh, mhLeft, t } from SRT users
-local auraReports = {} -- [nameKey] = { list = { { id, left } }, t }: SRT users' own buffs
+local reports = {} -- [nameKey] = { dur, mh, mhLeft, t } from ART users
+local auraReports = {} -- [nameKey] = { list = { { id, left } }, t }: ART users' own buffs
 local scan         -- last result, see RaidCheck.Scan
 local REPORT_MAX_AGE = 300 -- a buff report older than this is not used
 
--- Buffs of a player who is too far away to read, from their own SRT report.
+-- Buffs of a player who is too far away to read, from their own ART report.
 local function reportedAuras(key)
     local r = auraReports[key]
     if not r or GetTime() - r.t > REPORT_MAX_AGE then return nil end
     local out = {}
     for _, a in ipairs(r.list) do
-        local name, icon = SRT.Compat.SpellInfo(a.id)
+        local name, icon = ART.Compat.SpellInfo(a.id)
         if name then
             out[#out + 1] = { name = name, spellId = a.id, icon = icon, expires = a.left > 0 and (r.t + a.left) or nil }
         end
@@ -167,8 +167,8 @@ function RaidCheck.Scan()
     local now = GetTime()
     local rows, totals = {}, {}
     for _, c in ipairs(cats) do totals[c.id] = { have = 0, total = 0 } end
-    for _, m in ipairs(SRT.Compat.GroupRoster()) do
-        local key = SRT.Compat.NameKey(m.name)
+    for _, m in ipairs(ART.Compat.GroupRoster()) do
+        local key = ART.Compat.NameKey(m.name)
         local auras = m.online and readAuras(m.unit) or nil
         local remote
         if not auras and m.online then
@@ -271,8 +271,8 @@ end
 
 -- "Missing Flask (3): A, B, C", one chat line per category (split when too long).
 function RaidCheck.PostMissing()
-    local channel = SRT.Compat.GroupChatChannel()
-    if not channel then SRT:Print("You are not in a group.") return end
+    local channel = ART.Compat.GroupChatChannel()
+    if not channel then ART:Print("You are not in a group.") return end
     local lines = {}
     for _, m in ipairs(RaidCheck.Missing()) do
         local line = ("Missing %s (%d): "):format(m.cat.name, #m.names)
@@ -289,7 +289,7 @@ function RaidCheck.PostMissing()
     end
     if #lines == 0 then lines[1] = "Raid check: nobody is missing anything." end
     for i, line in ipairs(lines) do
-        C_Timer.After((i - 1) * 0.3, function() SRT.Compat.SendChat(line, channel) end)
+        C_Timer.After((i - 1) * 0.3, function() ART.Compat.SendChat(line, channel) end)
     end
 end
 
@@ -345,93 +345,93 @@ end
 local function sendReport(channel, target)
     local r = ownReport()
     local payload = ("%s|%s|%s"):format(r.dur or "", r.mh == nil and "" or (r.mh and "1" or "0"), r.mhLeft or "")
-    SRT.Comm.Send("RCR", payload, channel, target)
-    SRT.Comm.Send("RCA", ownAuraPayload(), channel, target)
+    ART.Comm.Send("RCR", payload, channel, target)
+    ART.Comm.Send("RCA", ownAuraPayload(), channel, target)
 end
 
-SRT.Comm.Register("RCA", function(sender, payload)
+ART.Comm.Register("RCA", function(sender, payload)
     local list = {}
     for id, left in payload:gmatch("(%d+):(%d+)") do
         list[#list + 1] = { id = tonumber(id), left = tonumber(left) }
     end
-    auraReports[SRT.Compat.NameKey(sender)] = { list = list, t = GetTime() }
+    auraReports[ART.Compat.NameKey(sender)] = { list = list, t = GetTime() }
     if scan then RaidCheck.Scan() end
 end)
 
-SRT.Comm.Register("RCR", function(sender, payload)
+ART.Comm.Register("RCR", function(sender, payload)
     local dur, mh, left = payload:match("^(%d*)|(%d?)|(%d*)$")
     if not dur then return end
     local weapon -- nil = their client could not tell
     if mh == "1" then weapon = true elseif mh == "0" then weapon = false end
-    reports[SRT.Compat.NameKey(sender)] = { dur = tonumber(dur), mh = weapon, mhLeft = tonumber(left), t = GetTime() }
+    reports[ART.Compat.NameKey(sender)] = { dur = tonumber(dur), mh = weapon, mhLeft = tonumber(left), t = GetTime() }
     if scan then RaidCheck.Scan() end
 end)
 
--- The leader's "Scan" asks every SRT user for a fresh report.
-SRT.Comm.Register("RCQ", function(_, _, channel)
+-- The leader's "Scan" asks every ART user for a fresh report.
+ART.Comm.Register("RCQ", function(_, _, channel)
     sendReport(channel)
 end)
 
 function RaidCheck.Refresh()
-    reports[SRT.Compat.NameKey(SRT.Compat.PlayerName())] = ownReport()
-    if IsInGroup() then SRT.Comm.Send("RCQ", "") end
+    reports[ART.Compat.NameKey(ART.Compat.PlayerName())] = ownReport()
+    if IsInGroup() then ART.Comm.Send("RCQ", "") end
     RaidCheck.Scan()
     -- Reports arrive over the next seconds.
-    C_Timer.After(3, function() SRT:Call("raid check", RaidCheck.Scan) end)
+    C_Timer.After(3, function() ART:Call("raid check", RaidCheck.Scan) end)
 end
 
 -- Everyone answered "ready" (after the check, nobody unanswered).
 function RaidCheck.AllReady()
-    for _, m in ipairs(SRT.Compat.GroupRoster()) do
-        if ready[SRT.Compat.NameKey(m.name)] ~= true then return false end
+    for _, m in ipairs(ART.Compat.GroupRoster()) do
+        if ready[ART.Compat.NameKey(m.name)] ~= true then return false end
     end
     return true
 end
 
--- A ready check: the SRT ready check window shows everyone's consumables while it runs
+-- A ready check: the ART ready check window shows everyone's consumables while it runs
 -- (db.raidcheck.popup = "all", "lead" or "off"); our own report goes to the leader.
-SRT:RegisterEvent("READY_CHECK", function(_, initiator, timeLeft)
+ART:RegisterEvent("READY_CHECK", function(_, initiator, timeLeft)
     wipe(ready)
     RaidCheck.running = true
     -- The initiator is ready by default.
-    if initiator then ready[SRT.Compat.NameKey(initiator)] = true end
-    reports[SRT.Compat.NameKey(SRT.Compat.PlayerName())] = ownReport()
+    if initiator then ready[ART.Compat.NameKey(initiator)] = true end
+    reports[ART.Compat.NameKey(ART.Compat.PlayerName())] = ownReport()
     if IsInGroup() then sendReport() end
     local popup = db().popup
-    if popup == "all" or (popup == "lead" and SRT.Compat.IsLeaderOrAssist()) then
+    if popup == "all" or (popup == "lead" and ART.Compat.IsLeaderOrAssist()) then
         RaidCheck.Refresh()
-        if SRT.ReadyWindow then SRT.ReadyWindow.Start(tonumber(timeLeft) or 30) end
+        if ART.ReadyWindow then ART.ReadyWindow.Start(tonumber(timeLeft) or 30) end
     elseif scan then
         RaidCheck.Scan()
     end
 end)
 
-SRT:RegisterEvent("READY_CHECK_CONFIRM", function(_, unit, isReady)
-    local name = unit and SRT.Compat.UnitFullName(unit)
-    if name then ready[SRT.Compat.NameKey(name)] = isReady and true or false end
+ART:RegisterEvent("READY_CHECK_CONFIRM", function(_, unit, isReady)
+    local name = unit and ART.Compat.UnitFullName(unit)
+    if name then ready[ART.Compat.NameKey(name)] = isReady and true or false end
     if scan then RaidCheck.Scan() end
 end)
 
-SRT:RegisterEvent("READY_CHECK_FINISHED", function()
+ART:RegisterEvent("READY_CHECK_FINISHED", function()
     RaidCheck.running = nil
     -- Who never answered was away.
-    for _, m in ipairs(SRT.Compat.GroupRoster()) do
-        local key = SRT.Compat.NameKey(m.name)
+    for _, m in ipairs(ART.Compat.GroupRoster()) do
+        local key = ART.Compat.NameKey(m.name)
         if ready[key] == nil then ready[key] = "afk" end
     end
     if scan then RaidCheck.Scan() end
-    if SRT.ReadyWindow then SRT.ReadyWindow.Finish(RaidCheck.AllReady()) end
+    if ART.ReadyWindow then ART.ReadyWindow.Finish(RaidCheck.AllReady()) end
 end)
 
 -- Buffs change during the check (people take their flask): scan again, at most twice a second.
 local auraPending
-SRT:RegisterEvent("UNIT_AURA", function(_, unit)
-    if auraPending or not (SRT.ReadyWindow and SRT.ReadyWindow.IsShown()) then return end
+ART:RegisterEvent("UNIT_AURA", function(_, unit)
+    if auraPending or not (ART.ReadyWindow and ART.ReadyWindow.IsShown()) then return end
     if not unit or not (unit == "player" or unit:match("^raid%d") or unit:match("^party%d")) then return end
     auraPending = true
     C_Timer.After(0.5, function()
         auraPending = nil
-        SRT:Call("raid check", RaidCheck.Scan)
+        ART:Call("raid check", RaidCheck.Scan)
     end)
 end)
 
@@ -455,7 +455,7 @@ function RaidCheck.ShowCellTooltip(owner, row, cat, cell)
         if not ok and aura.spellId and GameTooltip.SetSpellByID then ok = pcall(GameTooltip.SetSpellByID, GameTooltip, aura.spellId) end
         if not ok then GameTooltip:SetText(aura.name) end
         GameTooltip:AddLine(row.name .. (cell.left and (" \194\183 " .. fmtLeft(cell.left)) or ""), 0.6, 0.64, 0.68)
-        if row.remote then GameTooltip:AddLine("Reported by SRT (out of range)", 0.49, 0.52, 0.56) end
+        if row.remote then GameTooltip:AddLine("Reported by ART (out of range)", 0.49, 0.52, 0.56) end
         GameTooltip:Show()
         return
     end
@@ -463,7 +463,7 @@ function RaidCheck.ShowCellTooltip(owner, row, cat, cell)
     if cell.auras then
         for _, a in ipairs(cell.auras) do lines[#lines + 1] = a.name end
     elseif cell.state == "unknown" then
-        lines[#lines + 1] = (cat.kind == "weapon" or cat.kind == "durability") and "Unknown: no SRT (or no report yet)."
+        lines[#lines + 1] = (cat.kind == "weapon" or cat.kind == "durability") and "Unknown: no ART (or no report yet)."
             or "Unknown: out of range or offline."
     elseif cell.state == "no" or cell.state == "optional" then
         lines[#lines + 1] = cat.kind == "ready" and "Not ready" or "Missing"
@@ -471,17 +471,17 @@ function RaidCheck.ShowCellTooltip(owner, row, cat, cell)
         lines[#lines + 1] = cell.text
     end
     if row.remote and cat.kind ~= "ready" and cat.kind ~= "weapon" and cat.kind ~= "durability" then
-        lines[#lines + 1] = "Reported by SRT (out of range)"
+        lines[#lines + 1] = "Reported by ART (out of range)"
     end
-    SRT.Widgets.ShowTooltip(owner, lines)
+    ART.Widgets.ShowTooltip(owner, lines)
 end
 
 function RaidCheck.HideCellTooltip()
     if GameTooltip then GameTooltip:Hide() end
-    SRT.Widgets.HideTooltip()
+    ART.Widgets.HideTooltip()
 end
 
-SRT:AddSlashCommand("check", function()
+ART:AddSlashCommand("check", function()
     RaidCheck.Refresh()
-    SRT.Main.Toggle("raidcheck")
+    ART.Main.Toggle("raidcheck")
 end, "raid check: consumables and buffs of the group")

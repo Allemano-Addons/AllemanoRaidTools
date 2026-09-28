@@ -1,9 +1,9 @@
 -- Marks page: mouseover marking. Top: Ctrl + mouse wheel, lock, the general icon order.
 -- Below: icon lists per mob, grouped by zone (like the TBC marking addons).
-local _, SRT = ...
+local _, ART = ...
 
-local Theme, W = SRT.Theme, SRT.Widgets
-local Main, Marks = SRT.Main, SRT.Marks
+local Theme, W = ART.Theme, ART.Widgets
+local Main, Marks = ART.Main, ART.Marks
 
 local PAD, ROW_H, SLOT = 26, 30, 24
 local ICON = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_"
@@ -20,7 +20,7 @@ Main.RegisterPage("marks", function(page)
     help:SetJustifyH("LEFT")
     help:SetText("Hold Ctrl, point at a unit and scroll the mouse wheel one notch: it gets an icon. A mob with a list "
         .. "below gets the next free icon of its list (before the pull); anything else gets the next icon of the order. "
-        .. "One notch per unit: the game never lets addons mark by themselves. Key: Key Bindings > AddOns > SlaughterRaidTools.")
+        .. "One notch per unit: the game never lets addons mark by themselves. Key: Key Bindings > AddOns > Allemano Raid Tools.")
 
     local function toggleRow(anchor, x, label, get, set)
         local t = W.Toggle(page, function(on) set(on) end)
@@ -31,10 +31,10 @@ Main.RegisterPage("marks", function(page)
         t.refresh = function() t:Set(get()) end
         return t
     end
-    local wheel = toggleRow(help, 0, "Ctrl + mouse wheel marks", function() return SRT.db.marks.wheel end,
-        function(on) SRT.db.marks.wheel = on Marks.Apply() end)
-    local lock = toggleRow(help, 260, "Lock marks (a marked mob keeps its icon)", function() return SRT.db.marks.lock end,
-        function(on) SRT.db.marks.lock = on Marks.Prepare() end)
+    local wheel = toggleRow(help, 0, "Ctrl + mouse wheel marks", function() return ART.db.marks.wheel end,
+        function(on) ART.db.marks.wheel = on Marks.Apply() end)
+    local lock = toggleRow(help, 260, "Lock marks (a marked mob keeps its icon)", function() return ART.db.marks.lock end,
+        function(on) ART.db.marks.lock = on Marks.Prepare() end)
 
     -- General order.
     local orderLabel = W.Text(page, -2, "textDim")
@@ -144,7 +144,7 @@ Main.RegisterPage("marks", function(page)
     end
 
     local function refreshMobs()
-        local mobs = SRT.db.marks.mobs
+        local mobs = ART.db.marks.mobs
         local zones = {}
         for zone in pairs(mobs) do zones[#zones + 1] = zone end
         sort(zones)
@@ -199,10 +199,10 @@ Main.RegisterPage("marks", function(page)
         wheel.refresh()
         lock.refresh()
         for pos, b in ipairs(icons) do
-            local i = SRT.db.marks.order[pos]
+            local i = ART.db.marks.order[pos]
             b.iconIndex = i
             b.icon:SetTexture(ICON .. i)
-            local on = not SRT.db.marks.off[i]
+            local on = not ART.db.marks.off[i]
             b.icon:SetAlpha(on and 1 or 0.25)
             local r, g, bl
             if on then r, g, bl = Theme:Accent() else r, g, bl = Theme:Color("line") end

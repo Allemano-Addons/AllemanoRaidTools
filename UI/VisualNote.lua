@@ -1,9 +1,9 @@
 -- Visual note: the drawing page (Plan > Visual note) and the viewer window everyone sees
 -- when a visual note is shared.
-local _, SRT = ...
+local _, ART = ...
 
-local Theme, W = SRT.Theme, SRT.Widgets
-local Main, VN = SRT.Main, SRT.VisualNote
+local Theme, W = ART.Theme, ART.Widgets
+local Main, VN = ART.Main, ART.VisualNote
 
 local PAD = 26
 local MIN_STEP = 12 -- note units between two pen points while drawing (about 2-3 px)
@@ -47,9 +47,9 @@ Main.RegisterPage("visualnote", function(page)
     nameEdit:SetPoint("LEFT", saved, "RIGHT", 10, 0)
     local saveBtn = W.Button(page, "Save", nil, function()
         local name = strtrim(nameEdit:GetText())
-        if name == "" then SRT:Print("Give the drawing a name first.") return end
+        if name == "" then ART:Print("Give the drawing a name first.") return end
         VN.Save(name)
-        SRT:Print(("Saved \"%s\"."):format(name))
+        ART:Print(("Saved \"%s\"."):format(name))
     end, 26)
     saveBtn:SetPoint("LEFT", nameEdit, "RIGHT", 6, 0)
     local deleteBtn = W.Button(page, "Delete", nil, function()
@@ -99,10 +99,10 @@ Main.RegisterPage("visualnote", function(page)
         if v == "map" then
             local mapID = C_Map and C_Map.GetBestMapForUnit("player")
             bg.ref = mapID
-            if not mapID then SRT:Print("No map here.") end
+            if not mapID then ART:Print("No map here.") end
         elseif v == "image" then
             -- The first picture of the list to start with.
-            bg.ref = SRT.ImageList and SRT.ImageList[1] or nil
+            bg.ref = ART.ImageList and ART.ImageList[1] or nil
         else
             bg.ref = nil
         end
@@ -112,7 +112,7 @@ Main.RegisterPage("visualnote", function(page)
     -- The pictures in the Images folder (Images\list.lua, made by the Tools scripts).
     local pictureDrop = W.Dropdown(page, 170, function()
         local opts = {}
-        for _, name in ipairs(SRT.ImageList or {}) do opts[#opts + 1] = { value = name, label = name } end
+        for _, name in ipairs(ART.ImageList or {}) do opts[#opts + 1] = { value = name, label = name } end
         return opts
     end, function(name)
         draft().bg.kind, draft().bg.ref = "image", name
@@ -131,7 +131,7 @@ Main.RegisterPage("visualnote", function(page)
         VN.Changed()
     end)
     imageEdit.tip = { "Pick a picture from the menu, or type a file name and press Enter, e.g. ony_p2",
-        "The file SlaughterRaidTools\\Images\\ony_p2.tga must exist for everyone who should see it.",
+        "The file AllemanoRaidTools\\Images\\ony_p2.tga must exist for everyone who should see it.",
         "Tools\\img2tga.ps1 makes one from a screenshot. Restart WoW after adding files." }
     imageEdit:HookScript("OnEnter", function(self) W.ShowTooltip(self, self.tip) end)
     imageEdit:HookScript("OnLeave", function() W.HideTooltip() end)
@@ -288,8 +288,8 @@ Main.RegisterPage("visualnote", function(page)
             end)
         end
     end)
-    canvas:SetScript("OnMouseUp", function() SRT:Call("visual note draw", finishStroke) end)
-    canvas:SetScript("OnHide", function() SRT:Call("visual note draw", finishStroke) end)
+    canvas:SetScript("OnMouseUp", function() ART:Call("visual note draw", finishStroke) end)
+    canvas:SetScript("OnHide", function() ART:Call("visual note draw", finishStroke) end)
 
     local HELP = { p = "Hold the left button and draw.", l = "Drag to draw a line.", a = "Drag to draw an arrow.",
         i = "Pick an icon on the right, then click to place it.", t = "Click where the text goes, type, Enter.",
@@ -312,7 +312,7 @@ Main.RegisterPage("visualnote", function(page)
         pictureDrop:SetShown(d.bg.kind == "image")
         pictureDrop:Set(d.bg.kind == "image" and d.bg.ref or nil)
         if d.bg.kind == "image" and not d.bg.ref then
-            pictureDrop.text:SetText(#(SRT.ImageList or {}) > 0 and "Pick a picture" or "No pictures in Images")
+            pictureDrop.text:SetText(#(ART.ImageList or {}) > 0 and "Pick a picture" or "No pictures in Images")
         end
         imageEdit:SetShown(d.bg.kind == "image")
         if not imageEdit:HasFocus() then imageEdit:SetText(d.bg.kind == "image" and d.bg.ref or "") end
@@ -347,12 +347,12 @@ end)
 -- ---------------------------------------------------------------------------
 
 local Viewer = {}
-SRT.VisualViewer = Viewer
+ART.VisualViewer = Viewer
 
 local TITLE_H = 24
 local viewer
 
-local function saved() return SRT.db.visual.viewer end
+local function saved() return ART.db.visual.viewer end
 
 local function buildViewer()
     viewer = CreateFrame("Frame", nil, UIParent)
@@ -447,4 +447,4 @@ end
 function Viewer.IsShown() return viewer ~= nil and viewer:IsShown() end
 
 VN.OnChange(Viewer.Refresh)
-SRT:OnReady(function() if saved().shown and VN.Received() then Viewer.Show() end end)
+ART:OnReady(function() if saved().shown and VN.Received() then Viewer.Show() end end)

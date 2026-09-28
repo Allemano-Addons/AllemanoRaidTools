@@ -1,9 +1,9 @@
--- Version check: /srt version asks the group which SRT version everyone runs and
+-- Version check: /art version asks the group which ART version everyone runs and
 -- lists who is missing the addon. Any newer version seen is mentioned once.
-local _, SRT = ...
+local _, ART = ...
 
 local Version = {}
-SRT.Version = Version
+ART.Version = Version
 
 local WAIT = 3 -- seconds to collect replies
 
@@ -23,31 +23,31 @@ local replies     -- [nameKey] = { name, version } while a check runs
 local warnedNewer -- highest version already mentioned
 
 local function noteVersion(sender, version)
-    if replies then replies[SRT.Compat.NameKey(sender)] = { name = sender, version = version } end
-    if Version.Compare(version, SRT.version) > 0 and (not warnedNewer or Version.Compare(version, warnedNewer) > 0) then
+    if replies then replies[ART.Compat.NameKey(sender)] = { name = sender, version = version } end
+    if Version.Compare(version, ART.version) > 0 and (not warnedNewer or Version.Compare(version, warnedNewer) > 0) then
         warnedNewer = version
-        SRT:Print(("%s runs a newer version (%s, you have %s). Update when you can."):format(sender, version, tostring(SRT.version)))
+        ART:Print(("%s runs a newer version (%s, you have %s). Update when you can."):format(sender, version, tostring(ART.version)))
     end
 end
 
-SRT.Comm.Register("VQ", function(sender, payload, channel)
+ART.Comm.Register("VQ", function(sender, payload, channel)
     noteVersion(sender, payload)
-    SRT.Comm.Send("VR", SRT.version, channel)
+    ART.Comm.Send("VR", ART.version, channel)
 end)
 
-SRT.Comm.Register("VR", function(sender, payload)
+ART.Comm.Register("VR", function(sender, payload)
     noteVersion(sender, payload)
 end)
 
 local function report()
-    local members = SRT.Compat.GroupMembers()
+    local members = ART.Compat.GroupMembers()
     local byVersion, missing, offline = {}, {}, {}
-    local own = SRT.Compat.NameKey(SRT.Compat.PlayerName())
+    local own = ART.Compat.NameKey(ART.Compat.PlayerName())
     for _, m in ipairs(members) do
-        local key = SRT.Compat.NameKey(m.name)
+        local key = ART.Compat.NameKey(m.name)
         local r = replies[key]
         if key == own then
-            r = { version = SRT.version }
+            r = { version = ART.version }
         end
         if r then
             byVersion[r.version] = byVersion[r.version] or {}
@@ -69,35 +69,35 @@ local function report()
     local versions = {}
     for v in pairs(byVersion) do versions[#versions + 1] = v end
     sort(versions, function(a, b) return Version.Compare(a, b) > 0 end)
-    SRT:Print(("Version check (%d in group):"):format(#members))
+    ART:Print(("Version check (%d in group):"):format(#members))
     for _, v in ipairs(versions) do
         local names = byVersion[v]
         sort(names)
-        SRT:Print(("  |cff3fc77f%s|r (%d): %s"):format(v, #names, table.concat(names, ", ")))
+        ART:Print(("  |cff3fc77f%s|r (%d): %s"):format(v, #names, table.concat(names, ", ")))
     end
     if #missing > 0 then
         sort(missing)
-        SRT:Print(("  |cffe8483dno SRT|r (%d): %s"):format(#missing, table.concat(missing, ", ")))
+        ART:Print(("  |cffe8483dno ART|r (%d): %s"):format(#missing, table.concat(missing, ", ")))
     end
     if #offline > 0 then
         sort(offline)
-        SRT:Print(("  |cff888888offline|r (%d): %s"):format(#offline, table.concat(offline, ", ")))
+        ART:Print(("  |cff888888offline|r (%d): %s"):format(#offline, table.concat(offline, ", ")))
     end
 end
 
 function Version.Check()
     if replies then
-        SRT:Print("A version check is already running.")
+        ART:Print("A version check is already running.")
         return
     end
-    local ok, err = SRT.Comm.Send("VQ", SRT.version)
+    local ok, err = ART.Comm.Send("VQ", ART.version)
     if not ok then
-        SRT:Print("SlaughterRaidTools v" .. tostring(SRT.version) .. " (" .. err .. ", nobody to ask).")
+        ART:Print("Allemano Raid Tools v" .. tostring(ART.version) .. " (" .. err .. ", nobody to ask).")
         return
     end
     replies = {}
-    SRT:Print("Asking the group...")
-    C_Timer.After(WAIT, function() SRT:Call("version report", report) end)
+    ART:Print("Asking the group...")
+    C_Timer.After(WAIT, function() ART:Call("version report", report) end)
 end
 
-SRT:AddSlashCommand("version", Version.Check, "show which SRT version everyone in the group runs")
+ART:AddSlashCommand("version", Version.Check, "show which ART version everyone in the group runs")
