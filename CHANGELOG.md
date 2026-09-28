@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.0
+- Mouseover marking (During > Marks): hold Ctrl, point at a unit and scroll the mouse wheel one
+  notch to give it the next icon of the list (skull, cross, square...). Works in combat and on
+  players in the world or raid frames. Also bindable: Key Bindings > AddOns >
+  SlaughterRaidTools > "Mark mouseover (next icon)". The Marks page sets the order (click to
+  leave an icon out, right-click to move it earlier), Start over and Reset order. A key press
+  (or wheel notch) per unit is needed: the game never lets addons mark by themselves.
+
 ## 0.11.1
 - Visual note holds much bigger drawings: up to 4000 line pieces drawn (was 1500); curves are
   only rounded where the points are far apart (densely drawn strokes no longer double their

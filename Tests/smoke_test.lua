@@ -36,6 +36,9 @@ local function mock(kind)
         if k == "SetAlpha" then return function(self, v) self._alpha = v end end
         if k == "Insert" then return function(self, v) self._text = (self._text or "") .. v end end
         if k == "SetAttribute" then return function(self, key, v) self._attr = self._attr or {}; self._attr[key] = v end end
+        if k == "GetAttribute" then return function(self, key) return self._attr and self._attr[key] end end
+        if k == "WrapScript" then return function(self, target, script, pre) self._wrapped = { target = target, script = script, pre = pre } end end
+        if k == "GetName" then return function(self) return self._name end end
         if k == "CreateTexture" or k == "CreateFontString" or k == "CreateLine" then return function() return mock(k) end end
         if GETTERS[k] ~= nil then local v = GETTERS[k]; return function() return v end end
         return function() end
@@ -72,12 +75,15 @@ end
 
 -- WoW globals.
 local allFrames = {}
+local overrideKeys = {}
+ClearOverrideBindings = function() wipe(overrideKeys) end
+SetOverrideBindingClick = function(_, _, key, name) overrideKeys[key] = name end
 CreateFrame = function(kind, name, parent, template)
     local f = mock(kind)
     f._parent = parent
     f._template = template
     allFrames[#allFrames + 1] = f
-    if name then _G[name] = f end
+    if name then _G[name] = f; f._name = name end
     return f
 end
 UISpecialFrames = {}
@@ -1500,6 +1506,46 @@ step("auto log: dungeons only when chosen; a manual log is left alone", function
     zoneIn(false, "none", "Kalimdor")
     SlashCmdList.SLAUGHTERRAIDTOOLS("")
     click("Combat log")
+end)
+step("mouseover marking: secure button, Ctrl + wheel, icon order", function()
+    local btn = _G.SlaughterRaidToolsMarkButton
+    assert(btn and btn._template == "SecureActionButtonTemplate" and btn._attr.type == "macro", "no secure mark button")
+    assert(overrideKeys["CTRL-MOUSEWHEELUP"] == "SlaughterRaidToolsMarkButton", "Ctrl + wheel not bound")
+    -- Run the secure snippet like the game does before each press.
+    local wrapper
+    for _, f in ipairs(allFrames) do if f._wrapped and f._wrapped.target == btn then wrapper = f._wrapped end end
+    assert(wrapper and wrapper.script == "OnClick", "snippet not wrapped around OnClick")
+    local press = assert(load("local self = ...\n" .. wrapper.pre))
+    local seen = {}
+    for i = 1, 9 do
+        press(btn)
+        seen[i] = btn._attr.macrotext:match("(%d)$")
+    end
+    assert(table.concat(seen, ",") == "8,7,6,5,4,3,2,1,8", "order: " .. table.concat(seen, ","))
+    assert(btn._attr.macrotext:find("^/tm %[@mouseover,exists%] "), "macro: " .. btn._attr.macrotext)
+    -- Leave out the cross, start over.
+    SRT.Marks.Toggle(7)
+    press(btn); press(btn)
+    assert(btn._attr.macrotext:match("(%d)$") == "6", "cross should be skipped")
+    -- In combat nothing changes until it ends.
+    local realCombat = InCombatLockdown
+    InCombatLockdown = function() return true end
+    SRT.Marks.Toggle(7)
+    assert(btn._attr["srt-count"] == 7, "changed in combat")
+    InCombatLockdown = realCombat
+    fire("PLAYER_REGEN_ENABLED")
+    assert(btn._attr["srt-count"] == 8, "not applied after combat")
+    SRT.db.marks.wheel = false
+    SRT.Marks.Apply()
+    assert(next(overrideKeys) == nil, "wheel keys not removed")
+    SRT.db.marks.wheel = true
+    SRT.Marks.Apply()
+    SRT.Marks.MoveUp(2)
+    assert(SRT.db.marks.order[1] == 7, "move up")
+    SRT.Marks.Reset()
+    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    click("Marks")
+    click("Start over")
 end)
 step("launcher button: shown, clicks, hide and show", function()
     assert(SRT.Launcher.IsShown(), "launcher not shown after login")

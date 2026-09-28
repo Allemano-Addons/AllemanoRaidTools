@@ -28,7 +28,6 @@ local COMING = {
     reminders = "Personal reminders that pop up at the right moment (\"Soulstone on pull\", \"Bring fire resistance\").",
     buffs = "Assign buffs (Fortitude, Mark of the Wild, Intellect...) per class and group, and post the assignments.",
     summons = "See who is not in the raid's zone and post the summon list in raid chat (/srt summon).",
-    marks = "Menu for raid target icons and world markers.",
     timers = "Pull and break timers already work from the header buttons, /srt pull and /srt break. This page will add custom timers.",
     cooldowns = "Raid cooldowns per player. Depends on what WoW Forever lets addons see in combat: run /srt probe combat in a dungeon.",
     bres = "Battle res tracking. Depends on the combat probe as well.",
