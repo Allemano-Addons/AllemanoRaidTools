@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.0
+- Raid check (Before pull > Raid check, `/srt check`): a table of the group with one column
+  per category. Cells show minutes left, "ok", "x" (missing, red), "?" (out of range or no
+  SRT) or the ready check answer. The header shows have/total per column. "Only missing"
+  filter, "Post missing" to raid chat (optional columns left out), "Scan".
+- Categories are editable (Categories tab): short name, name, what counts (buff names or a
+  part of them, and spell IDs, separated by commas), optional, on/off; add and remove your
+  own; reset to defaults. Defaults (Classic, as a start): Ready, Flask, Battle elixir,
+  Guardian elixir, Food, Oil, Rune (off, empty), Int, Stam, MotW, Spirit, AP, Scroll,
+  Soulstone, Durability, Blessings (own column: Ki Mi Wi...).
+- Weapon oil and durability cannot be read for other players: every SRT user reports their
+  own at a ready check and when the leader scans.
+- A ready check opens the raid check for the leader/assistants (can be turned off) and fills
+  the Ready column as people answer.
+- Home: the Raid readiness card shows bars for the first four required columns and who is
+  missing the first one.
+
 ## 0.5.0
 - Groups: party members count as "in the group" (not only raid members).
 - New box "In the group, not on the roster": everyone in your party/raid who is not on the

@@ -2,7 +2,7 @@
 -- until then they say what they will show.
 local _, SRT = ...
 
-local W = SRT.Widgets
+local Theme, W = SRT.Theme, SRT.Widgets
 local Main = SRT.Main
 
 local PAD, GAP = 26, 16
@@ -14,8 +14,64 @@ Main.RegisterPage("home", function(page)
     readiness:SetPoint("TOPLEFT", PAD, -24)
     readiness:SetPoint("RIGHT", page, "CENTER", -GAP / 2, 0)
     readiness:SetHeight(190)
-    readiness.body:SetText("Flasks, food, buffs and durability for everyone, straight from the ready check, "
-        .. "with who is missing what.\n\n|cff7c858fArrives with Raid check.|r")
+    -- Four bars: the first required columns of the last raid check.
+    local bars = {}
+    for i = 1, 4 do
+        local b = CreateFrame("Frame", nil, readiness)
+        b:SetHeight(22)
+        b:SetPoint("TOPLEFT", 18, -40 - (i - 1) * 26)
+        b:SetPoint("RIGHT", -18, 0)
+        b.label = W.Text(b, 0, "text")
+        b.label:SetPoint("LEFT")
+        b.label:SetWidth(110)
+        b.track = W.Fill(b, "line", 1, "ARTWORK")
+        b.track:SetPoint("LEFT", 120, 0)
+        b.track:SetPoint("RIGHT", -60, 0)
+        b.track:SetHeight(4)
+        b.fill = b:CreateTexture(nil, "OVERLAY")
+        b.fill:SetPoint("LEFT", b.track, "LEFT")
+        b.fill:SetHeight(4)
+        b.count = W.Text(b, 0, "text")
+        b.count:SetPoint("RIGHT")
+        bars[i] = b
+    end
+    local readyMissing = W.Text(readiness, -2, "textDim")
+    readyMissing:SetPoint("BOTTOMLEFT", 18, 16)
+    readyMissing:SetPoint("RIGHT", -18, 0)
+
+    local function refreshReadiness()
+        local result = SRT.RaidCheck.Last()
+        readiness.body:SetShown(not result)
+        if not result then
+            readiness.body:SetText("Flasks, food, buffs and durability for everyone, with who is missing what. "
+                .. "Fills in at the next ready check (or Scan under Raid check).")
+            for _, b in ipairs(bars) do b:Hide() end
+            readyMissing:SetText("")
+            return
+        end
+        local shown = {}
+        for _, c in ipairs(result.cats) do
+            if #shown < 4 and not c.optional and c.kind ~= "ready" and c.kind ~= "blessings" then shown[#shown + 1] = c end
+        end
+        for i, b in ipairs(bars) do
+            local c = shown[i]
+            b:SetShown(c ~= nil)
+            if c then
+                local t = result.totals[c.id]
+                b.label:SetText(c.name)
+                local frac = t.total > 0 and t.have / t.total or 0
+                local full = t.total > 0 and t.have == t.total
+                b.count:SetText(("%d/%d"):format(t.have, t.total))
+                b.count:SetTextColor(Theme:Color(full and "text" or "warn"))
+                if full then b.fill:SetColorTexture(Theme:Accent()) else b.fill:SetColorTexture(Theme:Color("warn")) end
+                b.fill:SetWidth(max(1, b.track:GetWidth() * frac))
+                b.fill:SetShown(frac > 0)
+            end
+        end
+        local missing = SRT.RaidCheck.Missing(result)
+        readyMissing:SetText(missing[1] and ("Missing %s: %s"):format(missing[1].cat.name, table.concat(missing[1].names, ", ")) or "")
+    end
+    SRT.RaidCheck.OnChange(function() if page:IsShown() then refreshReadiness() end end)
 
     local note = W.Card(page, "Note", "Edit note", go("notes"))
     note:SetPoint("TOPLEFT", page, "TOP", GAP / 2, -24)
@@ -99,6 +155,7 @@ Main.RegisterPage("home", function(page)
 
     return function()
         refreshNote()
+        refreshReadiness()
         local state = SRT.Probe.CombatState()
         if state == "armed" then
             cds.body:SetText("Combat probe is armed: fight something in a dungeon, then /reload and send the SavedVariables file.")

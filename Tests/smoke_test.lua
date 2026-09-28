@@ -99,10 +99,20 @@ issecretvalue = function(v) return v == SECRET end
 UnitHealth = function() return SECRET end
 UnitHealthMax = function() return SECRET end
 C_Spell = { GetSpellCooldown = function() return { startTime = SECRET, duration = 1.5 } end }
+-- Buffs: auraOverride[unit] = list of auras; otherwise two "Flask" buffs (the player's
+-- expiration time is secret, like in combat).
+local auraOverride = {}
 C_UnitAuras = { GetBuffDataByIndex = function(unit, i)
+    if auraOverride[unit] then return auraOverride[unit][i] end
     if i > 2 then return nil end
     return { name = "Flask", spellId = 17628, icon = 1, duration = 7200, expirationTime = unit == "player" and SECRET or 9000 }
 end }
+local invisible = {}
+UnitIsVisible = function(u) return not invisible[u] end
+local durability = { cur = 50, max = 100 }
+GetInventoryItemDurability = function(slot) if slot == 5 then return durability.cur, durability.max end end
+local weaponEnchant = { true, 1200000 }
+GetWeaponEnchantInfo = function() return weaponEnchant[1], weaponEnchant[2], 0, 1 end
 C_RestrictedActions = { IsAddOnRestrictionActive = function() return true end, Something = function() end }
 C_Secrets = { ShouldAurasBeSecret = function() return SECRET end }
 local countdowns, readyChecks, chatLines = {}, 0, {}
@@ -960,6 +970,102 @@ step("toolbar: items, combat waits, only in group, /srt bar", function()
     Toolbar.Menu()
     SlashCmdList.SLAUGHTERRAIDTOOLS("")
     click("Toolbar")
+end)
+
+-- ---------------------------------------------------------------------------
+-- Raid check
+-- ---------------------------------------------------------------------------
+
+local RaidCheck = SRT.RaidCheck
+local function cellOf(result, name, cat)
+    for _, r in ipairs(result.rows) do
+        if r.name == name then return r.cells[cat] end
+    end
+end
+step("raid check: auras, blessings, out of range, secret values", function()
+    for i, r in ipairs(ROSTER) do r.group = i <= 2 and 1 or 2 end
+    auraOverride.raid2 = {
+        { name = "Supreme Power", spellId = 17628, expirationTime = now + 3600 },
+        { name = "Well Fed", spellId = 24799, expirationTime = now + 900 },
+        { name = "Greater Blessing of Kings", spellId = 25898, expirationTime = 0 },
+        { name = "Blessing of Might", spellId = 19838, expirationTime = now + 300 },
+        { name = SECRET, spellId = SECRET, expirationTime = SECRET },
+        { name = "Soulstone Resurrection", spellId = 20707, expirationTime = now + 1800 },
+    }
+    auraOverride.raid3 = { { name = "Arcane Intellect", spellId = 10157, expirationTime = now + 1500 } }
+    auraOverride.raid1 = { { name = "Flask", spellId = 17628, expirationTime = SECRET } }
+    invisible.raid4 = true
+    local res = RaidCheck.Scan()
+    assert(cellOf(res, "Kogosh Boll", "flask").text == "60m", "flask time")
+    assert(cellOf(res, "Kogosh Boll", "food").state == "yes", "food")
+    assert(cellOf(res, "Kogosh Boll", "bless").text == "Ki Mi", "blessings: " .. cellOf(res, "Kogosh Boll", "bless").text)
+    assert(cellOf(res, "Kogosh Boll", "ss").state == "yes", "soulstone")
+    assert(cellOf(res, "Whissel Ljud", "flask").state == "no" and cellOf(res, "Whissel Ljud", "int").state == "yes", "Whissel")
+    assert(cellOf(res, "Whissel Ljud", "ss").state == "optional", "optional category missing is not 'no'")
+    assert(cellOf(res, "Nobody Here", "flask").state == "unknown", "out of range should be unknown")
+    assert(cellOf(res, "Allemano Moo", "flask").text == "ok", "secret expiration shown as ok")
+    local t = res.totals.flask
+    assert(t.have == 2 and t.total == 3, ("flask totals %d/%d"):format(t.have, t.total))
+end)
+step("raid check: SRT reports for oil and durability", function()
+    fire("CHAT_MSG_ADDON", "SRT", "1|RCR|1|1|1|87|1|1800", "RAID", "Kogosh Boll")
+    fire("CHAT_MSG_ADDON", "SRT", "1|RCR|1|1|1|40|0|", "RAID", "Whissel Ljud")
+    local res = RaidCheck.Last()
+    assert(cellOf(res, "Kogosh Boll", "dur").text == "87%" and cellOf(res, "Kogosh Boll", "oil").text == "30m", "Kogosh report")
+    assert(cellOf(res, "Whissel Ljud", "dur").state == "no" and cellOf(res, "Whissel Ljud", "oil").state == "no", "Whissel report")
+    assert(cellOf(res, "Nobody Here", "oil").state == "unknown", "no SRT = unknown")
+end)
+step("raid check: ready check opens it, reports go out, answers are shown", function()
+    advance(30)
+    sent = {}
+    SRT.Main.Toggle()
+    fire("READY_CHECK", "Allemano Moo", 30)
+    assert(SRT.db.window.page == "raidcheck", "raid check did not open for the leader")
+    local kinds = {}
+    for _, m in ipairs(sent) do kinds[#kinds + 1] = m.text:match("^1|(%u+)|") end
+    local k = table.concat(kinds, ",")
+    assert(k:find("RCR") and k:find("RCQ"), "sent: " .. k)
+    local own = RaidCheck.Last()
+    assert(cellOf(own, "Allemano Moo", "dur").text == "50%" and cellOf(own, "Allemano Moo", "oil").text == "20m", "own report")
+    assert(cellOf(own, "Allemano Moo", "ready").state == "yes", "initiator is ready")
+    fire("READY_CHECK_CONFIRM", "raid2", true)
+    fire("READY_CHECK_CONFIRM", "raid3", false)
+    local res = RaidCheck.Last()
+    assert(cellOf(res, "Kogosh Boll", "ready").state == "yes" and cellOf(res, "Whissel Ljud", "ready").state == "no", "answers")
+    sent = {}
+    fire("CHAT_MSG_ADDON", "SRT", "1|RCQ|9|1|1|", "RAID", "Kogosh Boll")
+    assert(sent[1] and sent[1].text:find("|RCR|.*50|1|1200$"), "no answer to a report request")
+    sent = {}
+    advance(4)
+end)
+step("raid check: post missing, only missing, categories", function()
+    local before = #chatLines
+    RaidCheck.PostMissing()
+    advance(3)
+    local got = {}
+    for i = before + 1, #chatLines do got[#got + 1] = chatLines[i].msg end
+    local all = table.concat(got, " | ")
+    assert(all:find("Missing Flask %(1%): Whissel"), "post: " .. all)
+    assert(not all:find("Soulstone"), "optional category posted")
+    SRT.db.raidcheck.onlyMissing = true
+    SRT.Main.Refresh()
+    SRT.db.raidcheck.onlyMissing = false
+    click("Categories")
+    click("Add category")
+    local cats = RaidCheck.Categories()
+    local new = cats[#cats]
+    assert(new.custom and new.on, "no custom category")
+    new.short, new.name, new.match = "Rune", "Demonic rune", "Demonic Rune, 27869"
+    auraOverride.raid3[2] = { name = "Demonic Rune", spellId = 27869, expirationTime = 0 }
+    local res = RaidCheck.Scan()
+    assert(cellOf(res, "Whissel Ljud", new.id).state == "yes", "custom category not matched")
+    RaidCheck.RemoveCategory(new.id)
+    assert(#RaidCheck.Categories() == #cats, "not removed")
+    RaidCheck.ResetCategories()
+    assert(#RaidCheck.Categories() == #RaidCheck.DEFAULTS, "reset")
+    click("Check")
+    auraOverride.raid1, auraOverride.raid2, auraOverride.raid3, invisible.raid4 = nil, nil, nil, nil
+    click("Home")
 end)
 step("close window", function()
     SlashCmdList.SLAUGHTERRAIDTOOLS("")
