@@ -1,3 +1,7 @@
 *.bak
 Images/*.tga
 Images/*.blp
+Images/*.png
+Images/*.jpg
+Images/*.jpeg
+Images/*.webp
