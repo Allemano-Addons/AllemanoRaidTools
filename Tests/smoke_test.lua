@@ -72,8 +72,9 @@ end
 
 -- WoW globals.
 local allFrames = {}
-CreateFrame = function(kind, name, _, template)
+CreateFrame = function(kind, name, parent, template)
     local f = mock(kind)
+    f._parent = parent
     f._template = template
     allFrames[#allFrames + 1] = f
     if name then _G[name] = f end
@@ -383,11 +384,26 @@ end)
 -- Window
 -- ---------------------------------------------------------------------------
 
--- The first visible button whose label is `label` (buttons keep their text in .text).
-local function button(label)
-    for f, s in pairs(scripts) do
-        if s.OnClick and f.text and f.text._text == label and f._shown ~= false then return f end
+-- Shown, and every parent shown too (like the game's IsVisible).
+local function visible(f)
+    while f do
+        if f._shown == false then return false end
+        f = f._parent
     end
+    return true
+end
+
+-- The button whose label is `label` (buttons keep their text in .text): a visible one
+-- first (two pages may have a button with the same label), else any shown one.
+local function button(label)
+    local fallback
+    for f, s in pairs(scripts) do
+        if s.OnClick and f.text and f.text._text == label and f._shown ~= false then
+            if visible(f) then return f end
+            fallback = fallback or f
+        end
+    end
+    return fallback
 end
 local function click(label)
     local b = assert(button(label), "no button '" .. label .. "'")
@@ -1344,6 +1360,12 @@ step("visual note: drawing on the page", function()
     -- Background: current map.
     click("Current map")
     assert(VN.Draft().bg.kind == "map" and VN.Draft().bg.ref == 1411, "map background")
+    -- Picture: the list from Images\list.lua; the first picture is picked.
+    assert(type(SRT.ImageList) == "table", "Images\\list.lua not loaded")
+    SRT.ImageList = { "wailing_caverns", "test_shot" }
+    click("Picture")
+    assert(VN.Draft().bg.kind == "image" and VN.Draft().bg.ref == "wailing_caverns", "first picture not picked")
+    click("Current map")
     -- Save, load, delete.
     VN.Save("Plan A")
     VN.Draft().items = {}

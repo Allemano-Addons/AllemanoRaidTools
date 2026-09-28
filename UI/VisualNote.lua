@@ -101,24 +101,36 @@ Main.RegisterPage("visualnote", function(page)
             bg.ref = mapID
             if not mapID then SRT:Print("No map here.") end
         elseif v == "image" then
-            bg.ref = nil
+            -- The first picture of the list to start with.
+            bg.ref = SRT.ImageList and SRT.ImageList[1] or nil
         else
             bg.ref = nil
         end
         VN.Changed()
     end)
     bgSeg:SetPoint("TOPLEFT", PAD, -90)
-    local imageEdit = W.EditBox(page, "Picture name (Images folder)", 24)
-    imageEdit:SetWidth(200)
+    -- The pictures in the Images folder (Images\list.lua, made by the Tools scripts).
+    local pictureDrop = W.Dropdown(page, 170, function()
+        local opts = {}
+        for _, name in ipairs(SRT.ImageList or {}) do opts[#opts + 1] = { value = name, label = name } end
+        return opts
+    end, function(name)
+        draft().bg.kind, draft().bg.ref = "image", name
+        VN.Changed()
+    end)
+    pictureDrop:SetHeight(24)
+    pictureDrop:SetPoint("LEFT", bgSeg, "RIGHT", 10, 0)
+    local imageEdit = W.EditBox(page, "or type a name", 24)
+    imageEdit:SetWidth(130)
     imageEdit:SetMaxLetters(40)
-    imageEdit:SetPoint("LEFT", bgSeg, "RIGHT", 10, 0)
+    imageEdit:SetPoint("LEFT", pictureDrop, "RIGHT", 6, 0)
     imageEdit:SetScript("OnEnterPressed", function(self)
         local name = strlower(strtrim(self:GetText())):gsub("%.tga$", ""):gsub("[^%w_%-]", "")
         draft().bg.kind, draft().bg.ref = "image", name ~= "" and name or nil
         self:ClearFocus()
         VN.Changed()
     end)
-    imageEdit.tip = { "Type the file name and press Enter, e.g. ony_p2",
+    imageEdit.tip = { "Pick a picture from the menu, or type a file name and press Enter, e.g. ony_p2",
         "The file SlaughterRaidTools\\Images\\ony_p2.tga must exist for everyone who should see it.",
         "Tools\\img2tga.ps1 makes one from a screenshot. Restart WoW after adding files." }
     imageEdit:HookScript("OnEnter", function(self) W.ShowTooltip(self, self.tip) end)
@@ -283,6 +295,11 @@ Main.RegisterPage("visualnote", function(page)
         widths:Set(width)
         for i, sw in ipairs(swatches) do sw:SetSelected(i == color) end
         bgSeg:Set(d.bg.kind or "none")
+        pictureDrop:SetShown(d.bg.kind == "image")
+        pictureDrop:Set(d.bg.kind == "image" and d.bg.ref or nil)
+        if d.bg.kind == "image" and not d.bg.ref then
+            pictureDrop.text:SetText(#(SRT.ImageList or {}) > 0 and "Pick a picture" or "No pictures in Images")
+        end
         imageEdit:SetShown(d.bg.kind == "image")
         if not imageEdit:HasFocus() then imageEdit:SetText(d.bg.kind == "image" and d.bg.ref or "") end
         imageEdit.placeholder:SetShown(imageEdit:GetText() == "")

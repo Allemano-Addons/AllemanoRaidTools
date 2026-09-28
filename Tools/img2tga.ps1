@@ -41,3 +41,5 @@ $fs.Write($header, 0, $header.Length)
 $fs.Write($pixels, 0, $pixels.Length)
 $fs.Close()
 "Saved {0} ({1}x{2} picture in {3}x{4}). In the game: background Image, name '{5}'. Restart WoW first." -f $Dst, $pw, $ph, $W, $H, $Name
+# Add it to the picture menu in the game.
+& (Join-Path $PSScriptRoot "update-images.ps1")

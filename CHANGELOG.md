@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.2
+- Visual note: Picture has a menu with the pictures in the Images folder. An addon cannot
+  list a folder, so Images\list.lua holds the names: Tools\img2tga.ps1 updates it, and
+  Tools\update-images.ps1 rebuilds it after copying .tga/.blp files in by hand. Restart WoW
+  after adding pictures. A name can still be typed.
+- Tests: buttons on hidden pages no longer count (the test clicked the wrong "Send to raid").
+
 ## 0.10.1
 - Visual note: Move tool: drag a stroke, line, arrow, icon or text to a new place (it stays on
   the canvas).
