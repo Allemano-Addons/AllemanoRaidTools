@@ -35,6 +35,7 @@ local function mock(kind)
         if k == "GetFont" then return function() return "Fonts\\FRIZQT__.TTF", 12 end end
         if k == "SetAlpha" then return function(self, v) self._alpha = v end end
         if k == "Insert" then return function(self, v) self._text = (self._text or "") .. v end end
+        if k == "SetAttribute" then return function(self, key, v) self._attr = self._attr or {}; self._attr[key] = v end end
         if k == "CreateTexture" or k == "CreateFontString" then return function() return mock(k) end end
         if GETTERS[k] ~= nil then local v = GETTERS[k]; return function() return v end end
         return function() end
@@ -70,7 +71,14 @@ local function advance(seconds)
 end
 
 -- WoW globals.
-CreateFrame = function(kind, name) local f = mock(kind); if name then _G[name] = f end; return f end
+local allFrames = {}
+CreateFrame = function(kind, name, _, template)
+    local f = mock(kind)
+    f._template = template
+    allFrames[#allFrames + 1] = f
+    if name then _G[name] = f end
+    return f
+end
 UISpecialFrames = {}
 GetServerTime = function() return 1790000000 + now end
 GetPhysicalScreenSize = function() return 2560, 1440 end
@@ -173,6 +181,11 @@ SwapRaidSubgroup = function(a, b)
     ROSTER[a].group, ROSTER[b].group = ROSTER[b].group or 1, ROSTER[a].group or 1
 end
 UnitIsConnected = function() return true end
+local targetIcon, hasTarget, shiftDown = 0, true, false
+UnitExists = function(u) return u ~= "target" or hasTarget end
+GetRaidTargetIndex = function() return targetIcon ~= 0 and targetIcon or nil end
+SetRaidTarget = function(_, i) targetIcon = i end
+IsShiftKeyDown = function() return shiftDown end
 local leaderUnit = "player"
 local assistants = {}
 UnitIsGroupLeader = function(u) return u == leaderUnit end
@@ -788,6 +801,91 @@ step("auto assist when they join", function()
     assert(table.concat(promotedUnits, ",") == "raid2,raid3", "promoted: " .. table.concat(promotedUnits, ","))
     fire("GROUP_ROSTER_UPDATE")
     assert(#promotedUnits == 2, "promoted twice")
+end)
+
+-- ---------------------------------------------------------------------------
+-- Toolbar
+-- ---------------------------------------------------------------------------
+
+local Toolbar = SRT.Toolbar
+local function iconBtn(firstLine)
+    for f, s in pairs(scripts) do
+        if s.OnClick and type(f.tooltip) == "table" and f.tooltip[1] == firstLine and f._shown then return f end
+    end
+end
+local function secure(macro)
+    for _, f in ipairs(allFrames) do if f._attr and f._attr.macrotext == macro then return f end end
+end
+step("toolbar is shown after login", function()
+    assert(Toolbar.IsShown(), "toolbar hidden")
+end)
+step("toolbar: world markers are secure macro buttons", function()
+    for i = 1, 8 do
+        local b = assert(secure("/wm " .. i), "no button for /wm " .. i)
+        assert(b._template == "SecureActionButtonTemplate" and b._attr.type == "macro", "world marker " .. i .. " not secure")
+    end
+    assert(secure("/cwm 0"), "no clear-all button")
+end)
+step("toolbar: raid target icons toggle", function()
+    local skull = assert(iconBtn("Skull on your target"), "no skull button")
+    scripts[skull].OnClick(skull, "LeftButton")
+    assert(targetIcon == 8, "skull not set")
+    scripts[skull].OnClick(skull, "LeftButton")
+    assert(targetIcon == 0, "second click should remove it")
+    hasTarget = false
+    scripts[skull].OnClick(skull, "LeftButton")
+    assert(targetIcon == 0 and chatHas("Target something first"), "no target handled")
+    hasTarget = true
+end)
+step("toolbar: pull, break, ready check, note", function()
+    advance(30)
+    local rc = readyChecks
+    click("RC")
+    assert(readyChecks == rc + 1, "no ready check")
+    local pull = click("Pull")
+    assert(countdowns[#countdowns] == 10, "pull 10")
+    shiftDown = true
+    scripts[pull].OnClick(pull, "LeftButton")
+    shiftDown = false
+    assert(countdowns[#countdowns] == 15, "shift pull 15")
+    scripts[pull].OnClick(pull, "RightButton")
+    assert(countdowns[#countdowns] == 0, "right-click cancels")
+    click("Break")
+    assert(SRT.Timers.Remaining("break") == 600, "break not started")
+    click("Break")
+    assert(SRT.Timers.Remaining("break") == nil, "break not ended")
+    sent = {}
+    local shown = SRT.NoteWindow.IsShown()
+    click("Note")
+    assert(SRT.NoteWindow.IsShown() ~= shown, "note window not toggled")
+    click("Note")
+end)
+step("toolbar: items, combat waits, only in group, /srt bar", function()
+    local realCombat = InCombatLockdown
+    InCombatLockdown = function() return true end
+    Toolbar.SetItem("marks", false)
+    assert(iconBtn("Skull on your target"), "changed in combat")
+    InCombatLockdown = realCombat
+    fire("PLAYER_REGEN_ENABLED")
+    assert(not iconBtn("Skull on your target"), "not changed after combat")
+    Toolbar.SetItem("marks", true)
+    Toolbar.Set("vertical", true)
+    Toolbar.Set("vertical", false)
+    SRT.db.toolbar.onlyInGroup = true
+    inRaid = false
+    fire("GROUP_ROSTER_UPDATE")
+    assert(not Toolbar.IsShown(), "shown outside a group")
+    inRaid = true
+    fire("GROUP_ROSTER_UPDATE")
+    assert(Toolbar.IsShown(), "not shown in the group")
+    SRT.db.toolbar.onlyInGroup = false
+    SlashCmdList.SLAUGHTERRAIDTOOLS("bar")
+    assert(not Toolbar.IsShown(), "/srt bar did not hide")
+    SlashCmdList.SLAUGHTERRAIDTOOLS("bar")
+    assert(Toolbar.IsShown(), "/srt bar did not show")
+    Toolbar.Menu()
+    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    click("Toolbar")
 end)
 step("close window", function()
     SlashCmdList.SLAUGHTERRAIDTOOLS("")

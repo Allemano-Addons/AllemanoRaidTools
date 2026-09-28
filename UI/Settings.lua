@@ -116,6 +116,63 @@ Main.RegisterPage("appearance", function(page)
     return function() p:Refresh() end
 end)
 
+-- Toolbar: options on the left, what the bar shows on the right.
+Main.RegisterPage("toolbar", function(page)
+    local t = SRT.db.toolbar
+    local controls = {}
+    local function heading(text, x, y)
+        local fs = W.Text(page, -2, "text")
+        fs:SetPoint("TOPLEFT", x, -y)
+        fs:SetText(strupper(text))
+        W.OnAccent(function(r, g, b) fs:SetTextColor(r, g, b) end)
+    end
+    local function toggle(label, x, y, get, onChange)
+        local tg = W.Toggle(page, function(on) onChange(on) end)
+        tg:SetPoint("TOPLEFT", x, -y)
+        tg.refresh = function() tg:Set(get()) end
+        local fs = W.Text(page, 0, "text")
+        fs:SetPoint("LEFT", tg, "RIGHT", 10, 0)
+        fs:SetText(label)
+        controls[#controls + 1] = tg
+    end
+    local LEFT, RIGHT = LABEL_X, 330
+
+    heading("Toolbar", LEFT, 28)
+    local y = 60
+    for _, o in ipairs({ { "Show the toolbar", "shown" }, { "Only in a group", "onlyInGroup" },
+        { "Lock position", "locked" }, { "Vertical", "vertical" } }) do
+        toggle(o[1], LEFT, y, function() return t[o[2]] end, function(on) SRT.Toolbar.Set(o[2], on) end)
+        y = y + 34
+    end
+    local scaleLabel = W.Text(page, 0, "text")
+    scaleLabel:SetPoint("TOPLEFT", LEFT, -(y + 4))
+    scaleLabel:SetText("Size")
+    local scale = W.Slider(page, 70, 150, 5, 140, function(v) return v .. "%" end,
+        function(v) SRT.Toolbar.Set("scale", v / 100) end)
+    scale:SetPoint("TOPLEFT", LEFT + 50, -(y + 6))
+    scale.refresh = function() scale:Set(floor((t.scale or 1) * 100 + 0.5)) end
+    controls[#controls + 1] = scale
+    y = y + 44
+    local help = W.Text(page, -2, "textFaint")
+    help:SetPoint("TOPLEFT", LEFT, -y)
+    help:SetWordWrap(true)
+    help:SetWidth(280)
+    help:SetJustifyH("LEFT")
+    help:SetText("Drag the colored handle to move the bar, right-click it for these options. "
+        .. "/srt bar shows or hides it. In combat the bar cannot change; changes wait for combat to end.")
+
+    heading("Show on the toolbar", RIGHT, 28)
+    y = 60
+    for _, item in ipairs(SRT.Toolbar.ITEMS) do
+        toggle(item[2], RIGHT, y, function() return t.items[item[1]] end, function(on) SRT.Toolbar.SetItem(item[1], on) end)
+        y = y + 34
+    end
+
+    return function()
+        for _, c in ipairs(controls) do c.refresh() end
+    end
+end)
+
 Main.RegisterPage("advanced", function(page)
     local p = newPage(page)
 

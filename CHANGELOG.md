@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0
+- Toolbar: a small bar outside the main window (shown by default, `/srt bar` toggles it).
+  Pick what it shows (Settings > Toolbar, or right-click its colored handle):
+  - Open SRT
+  - Raid target icons on your target (click again removes it; the icon on your target is
+    highlighted) + remove
+  - World markers (click, then click the ground) + remove all
+  - Ready check, Pull (click 10, shift-click 15, right-click cancel), Break (click 10 min,
+    shift-click 5, right-click or click while running ends it), Note window
+  Options: only in a group, lock, vertical, size. The bar cannot change in combat; changes
+  wait until combat ends.
+
 ## 0.3.1
 - Groups: drag names between the group boxes. Dropped on a name (or an empty place) the two
   swap; dropped elsewhere in a box the name goes to its first free place. The roster text is

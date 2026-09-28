@@ -140,6 +140,9 @@ local function initDB()
     db.invite = db.invite or {}   -- invite tools (see Invites.lua)
     fillDefaults(db.invite, { ranks = {}, keyword = "inv", keywordOn = false, guildOnly = true, autoConvert = true, assists = "" })
     db.roster = db.roster or { text = "" } -- pasted OXM roster
+    db.toolbar = db.toolbar or {}  -- the small bar outside the main window (UI/Toolbar.lua)
+    fillDefaults(db.toolbar, { shown = true, onlyInGroup = false, locked = false, vertical = false, scale = 1,
+        items = { open = true, marks = true, world = true, readycheck = true, pull = true, breaktimer = true, note = true } })
     -- db.active = the raid note shown in the note window, db.lastSent = who confirmed ours
     -- Errors from before the saved data was loaded are kept too.
     db.errors = db.errors or {}

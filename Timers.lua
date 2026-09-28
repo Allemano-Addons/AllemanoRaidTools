@@ -116,6 +116,7 @@ function Timers.Start(kind, seconds, label, total)
     update()
     if not ticker then ticker = C_Timer.NewTicker(0.1, function() SRT:Call("timers", update) end) end
     if SRT.Main then SRT.Main.Refresh() end
+    if SRT.Toolbar then SRT.Toolbar.Refresh() end
 end
 
 function Timers.Stop(kind)
@@ -124,6 +125,7 @@ function Timers.Stop(kind)
     if bars[kind] then bars[kind]:Hide() end
     layout()
     if SRT.Main then SRT.Main.Refresh() end
+    if SRT.Toolbar then SRT.Toolbar.Refresh() end
 end
 
 -- Seconds left, nil when not running.

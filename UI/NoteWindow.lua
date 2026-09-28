@@ -207,11 +207,13 @@ function NoteWindow.Show()
     saved().shown = true
     frame:Show()
     NoteWindow.Refresh()
+    if SRT.Toolbar then SRT.Toolbar.Refresh() end
 end
 
 function NoteWindow.Hide()
     saved().shown = nil
     if frame then frame:Hide() end
+    if SRT.Toolbar then SRT.Toolbar.Refresh() end
 end
 
 function NoteWindow.Toggle()
