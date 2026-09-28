@@ -248,24 +248,26 @@ function Invites.SetRosterLines(lines)
     SRT.db.roster.text = table.concat(out, "\n")
 end
 
--- Drag and drop: move place `from` into group g (first empty place there), or swap two
--- places. Returns false and a reason when the group is full. The dragged players are
--- also moved in the raid when possible (see Invites.MoveLive).
+-- Drag and drop only changes the plan; "Apply groups" (Invites.Sort) moves the raid.
+-- Move place `from` into group g (first empty place there), or swap two places. Returns
+-- false and a reason when the group is full.
+local function firstFree(lines, g)
+    for i = #lines + 1, g * 5 do lines[i] = "-" end
+    for pos = (g - 1) * 5 + 1, g * 5 do
+        if lines[pos] == "-" then return pos end
+    end
+end
+
 function Invites.MoveToGroup(from, g)
     local lines = Invites.RosterLines(SRT.db.roster.text)
     if not lines[from] or lines[from] == "-" then return false end
     if floor((from - 1) / 5) + 1 == g then return true end
-    for i = #lines + 1, g * 5 do lines[i] = "-" end
-    for pos = (g - 1) * 5 + 1, g * 5 do
-        if lines[pos] == "-" then
-            lines[pos], lines[from] = lines[from], "-"
-            Invites.SetRosterLines(lines)
-            Invites.MoveLive({ pos })
-            changed()
-            return true
-        end
-    end
-    return false, ("Group %d is full: drop on a player to swap."):format(g)
+    local pos = firstFree(lines, g)
+    if not pos then return false, ("Group %d is full: drop on a player to swap."):format(g) end
+    lines[pos], lines[from] = lines[from], "-"
+    Invites.SetRosterLines(lines)
+    changed()
+    return true
 end
 
 function Invites.SwapPlaces(a, b)
@@ -274,7 +276,34 @@ function Invites.SwapPlaces(a, b)
     for i = #lines + 1, b do lines[i] = "-" end
     lines[a], lines[b] = lines[b], lines[a]
     Invites.SetRosterLines(lines)
-    Invites.MoveLive({ a, b })
+    changed()
+    return true
+end
+
+-- A group member who is not on the roster, dropped into group g: at place `pos` when it
+-- is empty, otherwise the group's first free place.
+function Invites.AddToGroup(name, g, pos)
+    local lines = Invites.RosterLines(SRT.db.roster.text)
+    if pos and pos <= 40 and floor((pos - 1) / 5) + 1 == g then
+        for i = #lines + 1, pos do lines[i] = "-" end
+        if lines[pos] ~= "-" then pos = nil end
+    else
+        pos = nil
+    end
+    pos = pos or firstFree(lines, g)
+    if not pos then return false, ("Group %d is full."):format(g) end
+    lines[pos] = name
+    Invites.SetRosterLines(lines)
+    changed()
+    return true
+end
+
+-- Takes a place off the roster (dragged to "not on the roster").
+function Invites.RemovePlace(pos)
+    local lines = Invites.RosterLines(SRT.db.roster.text)
+    if not lines[pos] then return false end
+    lines[pos] = "-"
+    Invites.SetRosterLines(lines)
     changed()
     return true
 end
@@ -298,34 +327,28 @@ local function indexMembers(members)
     end
 end
 
--- Each slot gets .member (raid member), .state ("raid", "self" = you while not in a raid,
--- "ambiguous", "guild" online in the guild, "offline", "unknown", "empty") and .name (the
--- name that matched or the first). You are never matched against the guild list, so an
--- alt with your first name does not make your name ambiguous.
+-- Each slot gets .member (group member, party or raid), .state ("raid" = in the group,
+-- "ambiguous", "guild" online in the guild, "offline", "unknown", "empty"), .name (the
+-- name that matched or the first) and .classFile when known. You are never matched
+-- against the guild list, so an alt with your first name does not make yours ambiguous.
+-- Also returns the group members who are not on the roster.
 function Invites.MatchRoster(slots)
-    local find = indexMembers(SRT.Compat.RaidRoster())
+    local members = SRT.Compat.GroupRoster()
+    local find = indexMembers(members)
     local me = SRT.Compat.NameKey(SRT.Compat.PlayerName())
     local guild = {}
     for _, g in ipairs(SRT.Compat.GuildRoster()) do
         if SRT.Compat.NameKey(g.name) ~= me then guild[#guild + 1] = g end
     end
-    local function isMe(n)
-        if n:find(" ", 1, true) then return SRT.Compat.NameKey(n) == me end
-        return firstKey(n) == firstKey(me)
-    end
     local used = {}
     for _, slot in ipairs(slots) do
-        slot.member, slot.state, slot.name, slot.guildName = nil, slot.empty and "empty" or "unknown", slot.names[1], nil
-        if not IsInRaid() then
-            for _, n in ipairs(slot.names) do
-                if isMe(n) then slot.state, slot.name = "self", n break end
-            end
-        end
+        slot.member, slot.state, slot.name, slot.guildName, slot.classFile = nil, slot.empty and "empty" or "unknown", slot.names[1], nil, nil
         for _, n in ipairs(slot.state == "unknown" and slot.names or {}) do
             local m, why = find(n)
-            if m and not used[m.index] then
-                used[m.index] = true
+            if m and not used[m.unit] then
+                used[m.unit] = true
                 slot.member, slot.state, slot.name = m, "raid", n
+                slot.classFile = select(2, UnitClass(m.unit))
                 break
             elseif why == "ambiguous" then
                 slot.state, slot.name = "ambiguous", n
@@ -345,33 +368,48 @@ function Invites.MatchRoster(slots)
                     end
                 end
                 if online and hits == 1 then
-                    slot.state, slot.name, slot.guildName = "guild", n, online.name
+                    slot.state, slot.name, slot.guildName, slot.classFile = "guild", n, online.name, online.classFile
                     break
                 elseif hits > 1 and online then
                     slot.state, slot.name = "ambiguous", n
                     break
                 elseif offline then
                     slot.state, slot.name = "offline", n
+                    if hits == 1 then slot.classFile = offline.classFile end
                 end
             end
         end
     end
-    return slots
+    local others = {}
+    for _, m in ipairs(members) do
+        if not used[m.unit] then
+            others[#others + 1] = { name = m.name, unit = m.unit, classFile = select(2, UnitClass(m.unit)) }
+        end
+    end
+    return slots, others
 end
 
 function Invites.Roster()
     return Invites.MatchRoster(Invites.ParseRoster(SRT.db.roster.text))
 end
 
-function Invites.InviteRosterMissing()
+-- Invites everyone on the roster who is online in the guild and not in the group, and
+-- announces it (settings: announce = "GUILD", "OFFICER" or "OFF", announceText).
+function Invites.InviteRoster()
     if not Invites.CanInvite() then SRT:Print("Only the raid leader or an assistant can invite.") return end
     local names = {}
-    for _, slot in ipairs(Invites.Roster()) do
+    for _, slot in ipairs((Invites.Roster())) do
         if slot.state == "guild" then names[#names + 1] = slot.guildName end
     end
     local n = Invites.Queue(names)
     SRT:Print(("Inviting %d player%s from the roster."):format(n, n == 1 and "" or "s"))
+    local s = settings()
+    if n > 0 and s.announce ~= "OFF" and IsInGuild() then
+        local text = strtrim(s.announceText or "")
+        if text ~= "" then SRT.Compat.SendChat(text, s.announce) end
+    end
 end
+Invites.InviteRosterMissing = Invites.InviteRoster
 
 -- ---------------------------------------------------------------------------
 -- Sorting: one move at a time (the raid list changes after each), every move places at
@@ -396,26 +434,28 @@ end
 local sorting = false
 function Invites.IsSorting() return sorting end
 
--- Runs moves until the raid matches the roster. only = set of roster places to place
--- (drag and drop), nil = everyone on the roster. quiet = no "Groups sorted." line.
-local function runSort(only, quiet)
+-- "Apply groups": moves players until the raid matches the roster.
+function Invites.Sort()
     if sorting then return end
+    if not IsInRaid() then SRT:Print("Applying groups needs a raid (convert the party first).") return end
+    if not SRT.Compat.IsLeaderOrAssist() then SRT:Print("Only the raid leader or an assistant can move players.") return end
+    if InCombatLockdown() then SRT:Print("Groups cannot be changed in combat.") return end
     sorting = true
     local steps = 0
     local function step()
         local slots = Invites.Roster()
         local desired = {}
         for _, slot in ipairs(slots) do
-            if slot.member and (not only or only[slot.pos]) then desired[slot.member.index] = slot.group end
+            if slot.member then desired[slot.member.index] = slot.group end
         end
         local kind, a, b = Invites.NextMove(SRT.Compat.RaidRoster(), desired)
         if not kind or steps >= SORT_MAX_STEPS or InCombatLockdown() then
             sorting = false
             changed()
             if kind then
-                SRT:Print("Sorting stopped before it was done (combat or too many moves). Try again.")
-            elseif not quiet then
-                SRT:Print("Groups sorted.")
+                SRT:Print("Applying groups stopped before it was done (combat or too many moves). Try again.")
+            else
+                SRT:Print("Groups applied.")
             end
             return
         end
@@ -434,23 +474,6 @@ local function runSort(only, quiet)
     step()
 end
 
-function Invites.Sort()
-    if sorting then return end
-    if not IsInRaid() then SRT:Print("Sorting needs a raid.") return end
-    if not SRT.Compat.IsLeaderOrAssist() then SRT:Print("Only the raid leader or an assistant can move players.") return end
-    if InCombatLockdown() then SRT:Print("Groups cannot be changed in combat.") return end
-    runSort(nil, false)
-end
-
--- After a drag and drop: move just those players in the raid, when we are allowed to.
--- The roster change stands either way.
-function Invites.MoveLive(places)
-    if not IsInRaid() or not SRT.Compat.IsLeaderOrAssist() or InCombatLockdown() then return end
-    local only = {}
-    for _, p in ipairs(places) do only[p] = true end
-    runSort(only, true)
-end
-
 SRT:AddSlashCommand("inv", function(arg)
     if arg ~= "" then
         Invites.Queue({ arg })
@@ -458,4 +481,5 @@ SRT:AddSlashCommand("inv", function(arg)
         Invites.InviteRanks()
     end
 end, "invite the selected guild ranks (/srt inv Name invites one player)")
-SRT:AddSlashCommand("sort", function() Invites.Sort() end, "sort the raid's groups from the roster")
+SRT:AddSlashCommand("apply", function() Invites.Sort() end, "move the raid into the roster's groups")
+SRT:AddSlashCommand("invroster", function() Invites.InviteRoster() end, "invite everyone on the roster (and announce it)")

@@ -138,7 +138,8 @@ local function initDB()
     db.personal = db.personal or {} -- [guid] = personal note text
     db.noteWindow = db.noteWindow or {}
     db.invite = db.invite or {}   -- invite tools (see Invites.lua)
-    fillDefaults(db.invite, { ranks = {}, keyword = "inv", keywordOn = false, guildOnly = true, autoConvert = true, assists = "" })
+    fillDefaults(db.invite, { ranks = {}, keyword = "inv", keywordOn = false, guildOnly = true, autoConvert = true, assists = "",
+        announce = "GUILD", announceText = "Inviting the raid roster now. Whisper me if you are missing an invite." })
     db.roster = db.roster or { text = "" } -- pasted OXM roster
     db.toolbar = db.toolbar or {}  -- the small bar outside the main window (UI/Toolbar.lua)
     fillDefaults(db.toolbar, { shown = true, onlyInGroup = false, locked = false, vertical = false, rows = 1, scale = 1,

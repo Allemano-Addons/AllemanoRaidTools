@@ -1,5 +1,5 @@
 -- Invites & groups page: Invite (guild ranks, keyword whispers, raid options) and Groups
--- (paste the OXM roster, see who is where, invite the missing, sort the groups).
+-- (paste the OXM roster, drag names between groups, invite the roster, apply the groups).
 local _, SRT = ...
 
 local Theme, W = SRT.Theme, SRT.Widgets
@@ -7,10 +7,10 @@ local Main, Invites = SRT.Main, SRT.Invites
 
 local PAD, GAP, LINE_H = 26, 10, 18
 
--- Roster slot colors (see Invites.MatchRoster).
-local STATE_COLOR = { raid = "text", guild = "text", offline = "textFaint", unknown = "bad", ambiguous = "warn" }
-local LEGEND = "|cff3fc77fin their group|r  \194\183  |cffe6e8ebin raid, other group (gN) / can be invited|r  \194\183  "
-    .. "|cff7c858foffline|r  \194\183  |cffe8a33dsame first name twice|r  \194\183  |cffe0564fnot found|r"
+-- Roster slot stripe colors (see Invites.MatchRoster); names are in class color.
+local STATE_COLOR = { guild = "accent", offline = "textFaint", unknown = "bad", ambiguous = "warn" }
+local LEGEND = "Stripe:  |cff3fc77fin their group|r  \194\183  |cffe6e8ebin the group, other group (gN)|r  \194\183  "
+    .. "|c%scan be invited|r  \194\183  |cff7c858foffline|r  \194\183  |cffe8a33dsame first name twice|r  \194\183  |cffe0564fnot found|r"
 
 local function label(parent, text, delta, color)
     local fs = W.Text(parent, delta or 0, color or "text")
@@ -76,6 +76,15 @@ Main.RegisterPage("invites", function(page)
     assistEdit:HookScript("OnTextChanged", function(self, user) if user then s.assists = self:GetText() end end)
     local assistHelp = label(inviteView, "Promoted when they join (you must be the raid leader).", -2, "textFaint")
 
+    local annHead = heading(inviteView, "Roster invite")
+    local annLabel = label(inviteView, "Announce in")
+    local annSeg = W.Segment(inviteView, { { value = "GUILD", label = "Guild" }, { value = "OFFICER", label = "Officer" },
+        { value = "OFF", label = "Off" } }, function(v) s.announce = v end)
+    local annEdit = W.EditBox(inviteView, "Message when \"Invite roster\" is clicked", 26)
+    annEdit:SetWidth(420)
+    annEdit:SetMaxLetters(250)
+    annEdit:HookScript("OnTextChanged", function(self, user) if user then s.announceText = self:GetText() end end)
+
     local function layoutInvite(rankHeight)
         inviteRanks:ClearAllPoints()
         inviteRanks:SetPoint("TOPLEFT", rankBox, "TOPLEFT", 0, -(rankHeight + 8))
@@ -92,6 +101,10 @@ Main.RegisterPage("invites", function(page)
         assistLabel:SetPoint("TOPLEFT", convToggle, "BOTTOMLEFT", 0, -22)
         assistEdit:SetPoint("LEFT", assistLabel, "RIGHT", 10, 0)
         assistHelp:SetPoint("TOPLEFT", assistLabel, "BOTTOMLEFT", 0, -12)
+        annHead:SetPoint("TOPLEFT", assistHelp, "BOTTOMLEFT", 0, -24)
+        annLabel:SetPoint("TOPLEFT", annHead, "BOTTOMLEFT", 0, -18)
+        annSeg:SetPoint("LEFT", annLabel, "RIGHT", 10, 0)
+        annEdit:SetPoint("TOPLEFT", annLabel, "BOTTOMLEFT", 0, -14)
     end
 
     local function rankRow(i)
@@ -137,6 +150,9 @@ Main.RegisterPage("invites", function(page)
         if not assistEdit:HasFocus() then assistEdit:SetText(s.assists or "") end
         kwEdit.placeholder:SetShown(kwEdit:GetText() == "")
         assistEdit.placeholder:SetShown(assistEdit:GetText() == "")
+        annSeg:Set(s.announce or "GUILD")
+        if not annEdit:HasFocus() then annEdit:SetText(s.announceText or "") end
+        annEdit.placeholder:SetShown(annEdit:GetText() == "")
     end
 
     -- Groups ------------------------------------------------------------------------
@@ -155,9 +171,13 @@ Main.RegisterPage("invites", function(page)
     grid:SetPoint("BOTTOMRIGHT", -PAD, 20)
     local boxes = {}
 
-    -- Drag and drop: a name follows the cursor; dropped on a name (or an empty place) the
-    -- two swap, dropped elsewhere in a group box it moves to that group's first free place.
-    local ghost, dragFrom
+    -- Drag and drop (changes the plan only; "Apply groups" moves the raid):
+    --   a roster name dropped on a name or empty place: the two swap
+    --   a roster name dropped elsewhere in a group box: that group's first free place
+    --   a roster name dropped on "not on the roster": taken off the roster
+    --   a group member from "not on the roster" dropped in a group: added there
+    local ghost, drag
+    local bench
     local function getGhost()
         if ghost then return ghost end
         ghost = CreateFrame("Frame", nil, UIParent)
@@ -177,24 +197,73 @@ Main.RegisterPage("invites", function(page)
         return ghost
     end
 
+    local function startDrag(what, text)
+        drag = what
+        local gh = getGhost()
+        gh.text:SetText(text)
+        gh:Show()
+    end
+
     local function drop()
-        local from = dragFrom
-        dragFrom = nil
+        local d = drag
+        drag = nil
         if ghost then ghost:Hide() end
-        if not from then return end
+        if not d then return end
+        if bench and bench:IsShown() and bench:IsMouseOver() then
+            if d.pos then Invites.RemovePlace(d.pos) end
+            return
+        end
         for g, b in pairs(boxes) do
             if b:IsShown() and b:IsMouseOver() then
+                local target
                 for _, line in ipairs(b.lines) do
-                    if line:IsMouseOver() then
-                        Invites.SwapPlaces(from, line.pos)
-                        return
-                    end
+                    if line:IsMouseOver() then target = line.pos end
                 end
-                local ok, why = Invites.MoveToGroup(from, g)
+                local ok, why
+                if d.pos and target then
+                    ok = Invites.SwapPlaces(d.pos, target)
+                elseif d.pos then
+                    ok, why = Invites.MoveToGroup(d.pos, g)
+                else
+                    ok, why = Invites.AddToGroup(d.name, g, target)
+                end
                 if not ok and why then SRT:Print(why) end
                 return
             end
         end
+    end
+
+    -- A name line: state stripe on the left, name in class color.
+    local function nameLine(parent)
+        local line = CreateFrame("Button", nil, parent)
+        line:SetHeight(LINE_H)
+        line.hl = W.Fill(line, "selected", 1)
+        line.hl:SetAllPoints()
+        line.hl:Hide()
+        line.stripe = line:CreateTexture(nil, "ARTWORK")
+        line.stripe:SetPoint("TOPLEFT", 2, -3)
+        line.stripe:SetPoint("BOTTOMLEFT", 2, 3)
+        line.stripe:SetWidth(3)
+        line.fs = label(line, "", -1, "text")
+        line.fs:SetPoint("LEFT", 10, 0)
+        line.fs:SetPoint("RIGHT", -4, 0)
+        line:RegisterForDrag("LeftButton")
+        line:SetScript("OnEnter", function(self) if self.filled or drag then self.hl:Show() end end)
+        line:SetScript("OnLeave", function(self) self.hl:Hide() end)
+        line:SetScript("OnDragStop", function() SRT:Call("roster drop", drop) end)
+        return line
+    end
+
+    local function paintLine(line, text, classFile, stateKey)
+        line.fs:SetText(text)
+        local r, g, b = Theme.ClassColor(classFile)
+        if r then line.fs:SetTextColor(r, g, b) else line.fs:SetTextColor(Theme:Color(stateKey == "warn" and "warn" or "textDim")) end
+        if stateKey == "accent" then
+            line.stripe:SetColorTexture(Theme:Accent())
+        elseif stateKey then
+            line.stripe:SetColorTexture(Theme:Color(stateKey))
+        end
+        line.stripe:SetShown(stateKey ~= nil)
     end
 
     local function box(g)
@@ -208,48 +277,52 @@ Main.RegisterPage("invites", function(page)
         b:EnableMouse(true)
         b.lines = {}
         for i = 1, 5 do
-            local line = CreateFrame("Button", nil, b)
+            local line = nameLine(b)
             line.pos = (g - 1) * 5 + i
             line.box = b
-            line:SetHeight(LINE_H)
             line:SetPoint("TOPLEFT", 4, -(24 + (i - 1) * LINE_H))
             line:SetPoint("RIGHT", -4, 0)
-            line.hl = W.Fill(line, "selected", 1)
-            line.hl:SetAllPoints()
-            line.hl:Hide()
-            line.fs = label(line, "", -1, "text")
-            line.fs:SetPoint("LEFT", 6, 0)
-            line.fs:SetPoint("RIGHT", -4, 0)
-            line:RegisterForDrag("LeftButton")
-            line:SetScript("OnEnter", function(self) if self.filled or dragFrom then self.hl:Show() end end)
-            line:SetScript("OnLeave", function(self) self.hl:Hide() end)
             line:SetScript("OnDragStart", function(self)
-                if not self.filled then return end
-                dragFrom = self.pos
-                local gh = getGhost()
-                gh.text:SetText(self.plain)
-                gh:Show()
+                if self.filled then startDrag({ pos = self.pos }, self.plain) end
             end)
-            line:SetScript("OnDragStop", function() SRT:Call("roster drop", drop) end)
             b.lines[i] = line
         end
         boxes[g] = b
         return b
     end
+
+    -- Group members who are not on the roster (drag them into a group).
+    bench = CreateFrame("Frame", nil, grid)
+    bench.bg = W.Fill(bench, "window", 1)
+    bench.bg:SetAllPoints()
+    bench.border = W.Border(bench, "line")
+    bench:EnableMouse(true)
+    bench.title = label(bench, "IN THE GROUP, NOT ON THE ROSTER", -2, "textDim")
+    bench.title:SetPoint("TOPLEFT", 10, -8)
+    bench.hint = label(bench, "", -2, "textFaint")
+    bench.hint:SetPoint("TOPLEFT", 10, -26)
+    bench.chips = {}
+    local function chip(i)
+        if bench.chips[i] then return bench.chips[i] end
+        local c = nameLine(bench)
+        c:SetScript("OnDragStart", function(self) startDrag({ name = self.name }, self.name) end)
+        bench.chips[i] = c
+        return c
+    end
+
     local legend = label(grid, LEGEND, -2, "textDim")
-    local extra = label(grid, "", -2, "textDim")
-    extra:SetWordWrap(true)
     local summary = label(grid, "", -1, "textDim")
     summary:SetPoint("BOTTOMLEFT", 0, 6)
-    local sortBtn = W.Button(grid, "Sort groups", "accent", function() Invites.Sort() end)
-    sortBtn:SetPoint("BOTTOMRIGHT")
-    local inviteMissing = W.Button(grid, "Invite missing", nil, function() Invites.InviteRosterMissing() end)
-    inviteMissing:SetPoint("RIGHT", sortBtn, "LEFT", -10, 0)
-    summary:SetPoint("RIGHT", inviteMissing, "LEFT", -10, 0)
+    local applyBtn = W.Button(grid, "Apply groups", "accent", function() Invites.Sort() end)
+    applyBtn:SetPoint("BOTTOMRIGHT")
+    applyBtn.tooltip = "Moves the raid's players into the groups shown here."
+    local inviteRoster = W.Button(grid, "Invite roster", nil, function() Invites.InviteRoster() end)
+    inviteRoster:SetPoint("RIGHT", applyBtn, "LEFT", -10, 0)
+    summary:SetPoint("RIGHT", inviteRoster, "LEFT", -10, 0)
 
     local empty = label(grid, "Paste the roster on the left: names top to bottom, five per group\n"
         .. "(blank lines are ignored). \"Name/Other\" means either of them, \"-\" an empty place.\n"
-        .. "Then drag names between the groups; in a raid the players move too.", 0, "textDim")
+        .. "Drag names between the groups, then \"Apply groups\" moves the raid.", 0, "textDim")
     empty:SetPoint("TOPLEFT", 0, -4)
     empty:SetPoint("RIGHT")
     empty:SetJustifyV("TOP")
@@ -257,7 +330,7 @@ Main.RegisterPage("invites", function(page)
 
     local function refreshGroups()
         if not paste.edit:HasFocus() then paste.edit:SetText(SRT.db.roster.text or "") end
-        local slots = Invites.Roster()
+        local slots, others = Invites.Roster()
         local groups = 0
         for _, slot in ipairs(slots) do
             if not slot.empty then groups = max(groups, slot.group) end
@@ -278,68 +351,82 @@ Main.RegisterPage("invites", function(page)
                 b:SetPoint("TOPLEFT", ((g - 1) % cols) * (boxW + GAP), -floor((g - 1) / cols) * (boxH + GAP))
                 b.title:SetTextColor(Theme:Color(g > used and "textFaint" or "textDim"))
                 for i = 1, 5 do
-                    b.lines[i].fs:SetText("")
-                    b.lines[i].filled = nil
+                    local line = b.lines[i]
+                    paintLine(line, "", nil, nil)
+                    line.filled = nil
                 end
             end
         end
-        local counts = { raid = 0, right = 0, guild = 0, offline = 0, unknown = 0, ambiguous = 0, self = 0, empty = 0 }
-        local listed = {}
+        local counts = { raid = 0, right = 0, guild = 0, offline = 0, unknown = 0, ambiguous = 0, filled = 0 }
         for i, slot in ipairs(slots) do
-            local b = boxes[slot.group]
-            local line = b.lines[(i - 1) % 5 + 1]
-            local fs = line.fs
+            local line = boxes[slot.group].lines[(i - 1) % 5 + 1]
             local text = table.concat(slot.names, "/")
             line.plain = text
             line.filled = not slot.empty
-            if slot.state == "empty" then
-                text = ""
-            elseif slot.state == "self" then
-                fs:SetTextColor(Theme:Color("text"))
-                text = text .. "  |cff7c858f(you)|r"
-            elseif slot.state == "raid" then
-                listed[slot.member.index] = true
+            if not slot.empty then counts.filled = counts.filled + 1 end
+            if slot.state == "raid" then
                 counts.raid = counts.raid + 1
                 if slot.member.group == slot.group then
                     counts.right = counts.right + 1
-                    fs:SetTextColor(Theme:Color("good"))
+                    paintLine(line, text, slot.classFile, "good")
                 else
-                    text = text .. "  |cff7c858f(g" .. slot.member.group .. ")|r"
-                    fs:SetTextColor(Theme:Color("text"))
+                    paintLine(line, text .. "  |cff7c858f(g" .. slot.member.group .. ")|r", slot.classFile, "text")
                 end
-            else
+            elseif slot.state ~= "empty" then
                 counts[slot.state] = counts[slot.state] + 1
-                fs:SetTextColor(Theme:Color(STATE_COLOR[slot.state]))
-                if slot.state == "guild" then text = text .. "  |cff7c858f(invite)|r" end
+                local suffix = (slot.state == "guild" and "  |cff7c858f(invite)|r") or (slot.state == "offline" and "  |cff7c858f(offline)|r") or ""
+                paintLine(line, text .. suffix, slot.classFile, STATE_COLOR[slot.state])
             end
-            fs:SetText(text)
         end
-        -- Raid members who are not on the roster.
-        local others = {}
-        for _, m in ipairs(SRT.Compat.RaidRoster()) do
-            if not listed[m.index] then others[#others + 1] = m.name end
-        end
+
         local rows = ceil(groups / cols)
+        local y = rows * (boxH + GAP)
         legend:ClearAllPoints()
-        legend:SetPoint("TOPLEFT", 0, -(rows * (boxH + GAP) + 2))
+        legend:SetPoint("TOPLEFT", 0, -(y + 2))
         legend:SetShown(groups > 0)
-        extra:ClearAllPoints()
-        extra:SetPoint("TOPLEFT", legend, "BOTTOMLEFT", 0, -10)
-        extra:SetPoint("RIGHT")
-        extra:SetText(#others > 0 and ("Not on the roster: " .. table.concat(others, ", ")) or "")
+        local ar, ag, ab = Theme:Accent()
+        legend:SetText(LEGEND:format(("ff%02x%02x%02x"):format(floor(ar * 255 + 0.5), floor(ag * 255 + 0.5), floor(ab * 255 + 0.5))))
+        y = y + (groups > 0 and 24 or 0)
+
+        -- Not on the roster: four per row.
+        local chipW = floor((width - 20) / 4)
+        for i, o in ipairs(others) do
+            local c = chip(i)
+            c.name = o.name
+            c.filled = true
+            c:ClearAllPoints()
+            c:SetSize(chipW, LINE_H)
+            c:SetPoint("TOPLEFT", 6 + ((i - 1) % 4) * chipW, -(26 + floor((i - 1) / 4) * LINE_H))
+            paintLine(c, o.name, o.classFile, nil)
+            c:Show()
+        end
+        for i = #others + 1, #bench.chips do bench.chips[i]:Hide() end
+        bench.hint:SetShown(#others == 0)
+        bench.hint:SetText(groups > 0 and "Drag a name here to take it off the roster." or "")
+        bench:ClearAllPoints()
+        bench:SetPoint("TOPLEFT", 0, -y)
+        bench:SetPoint("RIGHT")
+        bench:SetHeight(26 + max(1, ceil(#others / 4)) * LINE_H + 8)
+        bench:SetShown(groups > 0 or #others > 0)
+
         if groups == 0 then
             summary:SetText("")
         else
-            summary:SetText(("%d/%d in raid \194\183 %d in their group \194\183 %d to invite"):format(
-                counts.raid, #slots, counts.right, counts.guild))
+            summary:SetText(("%d/%d in the group \194\183 %d in their group \194\183 %d can be invited"):format(
+                counts.raid, counts.filled, counts.right, counts.guild))
         end
         local lead = not SRT.Compat.IsLeaderOrAssist() and "Only the raid leader or an assistant can do this." or nil
-        inviteMissing:SetLabel(("Invite missing (%d)"):format(counts.guild))
-        inviteMissing:SetDisabled((not Invites.CanInvite() and "Only the raid leader or an assistant can invite.")
-            or (counts.guild == 0 and "Nobody on the roster is online in the guild and missing from the raid.") or nil)
-        sortBtn:SetLabel(Invites.IsSorting() and "Sorting..." or "Sort groups")
-        sortBtn:SetDisabled((not IsInRaid() and "Sorting needs a raid.") or lead
-            or (Invites.IsSorting() and "Sorting is running.") or (counts.raid == 0 and "Nobody on the roster is in the raid.") or nil)
+        local s2 = SRT.db.invite
+        inviteRoster:SetLabel(("Invite roster (%d)"):format(counts.guild))
+        inviteRoster.tooltip = (s2.announce ~= "OFF" and strtrim(s2.announceText or "") ~= "")
+            and { "Invites everyone on the roster who is online in the guild.",
+                ("Posts in %s chat: %s"):format(s2.announce == "OFFICER" and "officer" or "guild", s2.announceText) }
+            or "Invites everyone on the roster who is online in the guild."
+        inviteRoster:SetDisabled((not Invites.CanInvite() and "Only the raid leader or an assistant can invite.")
+            or (counts.guild == 0 and "Nobody on the roster is online in the guild and missing from the group.") or nil)
+        applyBtn:SetLabel(Invites.IsSorting() and "Applying..." or "Apply groups")
+        applyBtn:SetDisabled((not IsInRaid() and "Needs a raid: convert the party first.") or lead
+            or (Invites.IsSorting() and "Already applying.") or (counts.raid == 0 and "Nobody on the roster is in the raid.") or nil)
     end
 
     function refresh()

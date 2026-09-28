@@ -682,7 +682,7 @@ step("sort the raid from the roster", function()
     Invites.Sort()
     advance(5)
     assert(ROSTER[1].group == 2 and ROSTER[2].group == 1 and ROSTER[3].group == 1 and ROSTER[4].group == 1, "not sorted")
-    assert(not Invites.IsSorting() and chatHas("Groups sorted"), "sorting did not finish")
+    assert(not Invites.IsSorting() and chatHas("Groups applied"), "sorting did not finish")
 end)
 step("groups page renders the roster", function()
     SRT.db.roster.text = OXM
@@ -743,12 +743,36 @@ end)
 step("your own name is never ambiguous with your alt", function()
     table.insert(GUILD, { "Allemano Mu", "Member", 3, true })
     inRaid = false
-    local slots = Invites.MatchRoster(Invites.ParseRoster("Allemano\nAllemano Moo"))
+    local slots = Invites.MatchRoster(Invites.ParseRoster("Allemano"))
     inRaid = true
-    assert(slots[1].state == "self" and slots[2].state == "self", "solo: " .. slots[1].state .. "," .. slots[2].state)
+    assert(slots[1].state == "raid" and slots[1].member.unit == "player", "solo: " .. slots[1].state)
     slots = Invites.MatchRoster(Invites.ParseRoster("Allemano"))
     assert(slots[1].state == "raid" and slots[1].member.name == "Allemano Moo", "raid: " .. slots[1].state)
     table.remove(GUILD)
+end)
+step("party members count as in the group; the rest are listed; class colors", function()
+    inRaid = false
+    local realName, realSub = UnitName, GetNumSubgroupMembers
+    GetNumSubgroupMembers = function() return 1 end
+    UnitName = function(u)
+        if u == "party1" then return "Boogie", "Wonde" end
+        return realName(u)
+    end
+    partySize = 2
+    local slots, others = Invites.MatchRoster(Invites.ParseRoster("Aldera\nAllemano"))
+    assert(slots[1].state == "guild" and slots[1].classFile == "DRUID", "guild member class")
+    assert(slots[2].state == "raid" and slots[2].member.group == 1 and slots[2].classFile == "DRUID", "you in the party")
+    assert(#others == 1 and others[1].name == "Boogie Wonde", "party member not on the roster")
+    -- Drag Boogie from "not on the roster" into group 2, then back out.
+    SRT.db.roster.text = "Aldera\nAllemano"
+    assert(Invites.AddToGroup("Boogie Wonde", 2))
+    assert(SRT.db.roster.text == "Aldera\nAllemano\n-\n-\n-\nBoogie Wonde", "add: " .. SRT.db.roster.text)
+    slots, others = Invites.Roster()
+    assert(slots[6].state == "raid" and #others == 0, "Boogie now on the roster")
+    assert(Invites.AddToGroup("Kogosh", 1, 2) and SRT.db.roster.text:find("^Aldera\nAllemano\nKogosh"), "occupied place: first free")
+    assert(Invites.RemovePlace(6) and not SRT.db.roster.text:find("Boogie"), "take off the roster")
+    UnitName, GetNumSubgroupMembers, partySize = realName, realSub, 0
+    inRaid = true
 end)
 step("drag and drop: move into a group, full group, swap, empty places", function()
     SRT.db.roster.text = "A\nB\nC\nD\nE\nF"
@@ -765,13 +789,35 @@ step("drag and drop: move into a group, full group, swap, empty places", functio
     assert(Invites.MoveToGroup(12, 1))
     assert(SRT.db.roster.text == "A\nB\nC\nD\nE\nF\nG\nH\nI\nJ", "trim: " .. SRT.db.roster.text)
 end)
-step("drag and drop moves the players in the raid", function()
+step("drag and drop changes the plan; Apply groups moves the raid", function()
     SRT.db.roster.text = "Kogosh\nWhissel\nNobody\n-\n-\nAllemano"
     for i, r in ipairs(ROSTER) do r.group = i == 1 and 2 or 1 end
     Invites.SwapPlaces(1, 6)
     advance(2)
-    assert(ROSTER[2].group == 2 and ROSTER[1].group == 1, "Kogosh/Allemano not swapped in the raid")
+    assert(ROSTER[2].group == 1 and ROSTER[1].group == 2, "the drag moved the raid")
+    Invites.Sort()
+    advance(3)
+    assert(ROSTER[2].group == 2 and ROSTER[1].group == 1, "Apply groups did not move Kogosh/Allemano")
     assert(ROSTER[3].group == 1 and ROSTER[4].group == 1, "others moved")
+    assert(chatHas("Groups applied"), "no confirmation")
+end)
+step("invite roster announces in guild chat", function()
+    advance(100)
+    wipe(invited)
+    SRT.db.roster.text = "Aldera\nGretha\nKogosh"
+    local before = #chatLines
+    Invites.InviteRoster()
+    advance(2)
+    assert(#invited == 2, "invited: " .. table.concat(invited, ","))
+    local line = chatLines[before + 1]
+    assert(line and line.channel == "GUILD" and line.msg:find("Inviting the raid roster"), "no guild announcement")
+    SRT.db.invite.announce = "OFF"
+    before = #chatLines
+    advance(100)
+    wipe(invited)
+    Invites.InviteRoster()
+    assert(#chatLines == before, "announced while off")
+    SRT.db.invite.announce = "GUILD"
 end)
 step("drag and drop in the page", function()
     SRT.db.roster.text = "Kogosh\nWhissel\nNobody"
@@ -792,6 +838,20 @@ step("drag and drop in the page", function()
     rawset(dst.box, "IsMouseOver", nil)
     assert(SRT.db.roster.text == "-\nWhissel\nNobody\n-\n-\n-\nKogosh", "drop: " .. SRT.db.roster.text)
     advance(3)
+    -- From "not on the roster" (you are in the raid but not listed) into place 1.
+    local chip, first
+    for f, s in pairs(scripts) do
+        if s.OnDragStart and f.name == "Allemano Moo" and f._shown then chip = f end
+        if s.OnDragStart and f.pos == 1 then first = f end
+    end
+    assert(chip and first, "not-on-the-roster name not shown")
+    scripts[chip].OnDragStart(chip)
+    rawset(first, "IsMouseOver", function() return true end)
+    rawset(first.box, "IsMouseOver", function() return true end)
+    scripts[chip].OnDragStop(chip)
+    rawset(first, "IsMouseOver", nil)
+    rawset(first.box, "IsMouseOver", nil)
+    assert(SRT.db.roster.text:find("^Allemano Moo\nWhissel"), "member drop: " .. SRT.db.roster.text)
 end)
 step("auto assist when they join", function()
     wipe(promotedUnits)

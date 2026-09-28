@@ -172,6 +172,17 @@ function Compat.RaidRoster()
     return out
 end
 
+-- Everyone in the group, party or raid: like RaidRoster, but in a party everyone is in
+-- group 1 and has no raid index (they cannot be moved).
+function Compat.GroupRoster()
+    if IsInRaid() then return Compat.RaidRoster() end
+    local out = {}
+    for _, m in ipairs(Compat.GroupMembers()) do
+        out[#out + 1] = { unit = m.unit, name = m.name, group = 1, online = m.online }
+    end
+    return out
+end
+
 -- Guild members: { { name, rank, rankIndex, level, online, classFile } }. Ask the server
 -- for a fresh list with Compat.RequestGuildRoster (GUILD_ROSTER_UPDATE answers).
 function Compat.GuildRoster()

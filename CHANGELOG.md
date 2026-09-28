@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0
+- Groups: party members count as "in the group" (not only raid members).
+- New box "In the group, not on the roster": everyone in your party/raid who is not on the
+  roster. Drag them into a group to add them; drag a roster name into the box to take it off.
+- Names are shown in class color (group members and guild members); a colored stripe shows
+  the status: in their group, in the group elsewhere (gN), can be invited, offline, same
+  first name twice, not found.
+- Dragging now only changes the plan. "Apply groups" (was "Sort groups") moves the raid.
+  `/srt apply`.
+- "Invite roster (N)" (was "Invite missing") invites everyone on the roster who is online in
+  the guild and posts a message in guild or officer chat. Channel and message under Invite >
+  Roster invite. `/srt invroster`.
+
 ## 0.4.3
 - Toolbar rows: 1, 2 or 3 rows (columns when vertical), in Settings > Toolbar or the handle's
   right-click menu. Button groups stay together and are split so the rows are as even as
