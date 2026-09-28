@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0
+- Pull log (After > Pull log, `/srt pulls`): every boss pull is logged by itself with the boss,
+  the instance, the time in combat and kill or wipe with the boss's lowest health during the
+  fight ("?" when the game hides it). A line in chat after each pull ("Onyxia #3: Wipe at 45.0%
+  after 1:07"). One raid night at a time (a night lasts until 06:00): a summary per boss
+  (pulls, kills, best wipe, kill time, time in combat) and every pull, newest first; a live
+  line while pulling; delete a night.
+- Home: the Pulls tonight card shows tonight's last three pulls.
+
 ## 0.8.1
 - Sidebar: tools that are not built yet are marked SOON (like PROBE on Cooldowns and Battle
   res). The mark disappears by itself when a tool is built.

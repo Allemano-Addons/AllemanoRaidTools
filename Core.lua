@@ -145,6 +145,7 @@ local function initDB()
     fillDefaults(db.invite, { ranks = {}, keyword = "inv", keywordOn = false, guildOnly = true, autoConvert = true, assists = "",
         announce = "GUILD", announceText = "Inviting the raid roster now. Whisper me if you are missing an invite." })
     db.roster = db.roster or { text = "" } -- pasted OXM roster
+    db.pulls = db.pulls or {}     -- pull log (PullLog.lua), newest last
     db.raidcheck = db.raidcheck or {} -- raid check: categories (editable), options
     fillDefaults(db.raidcheck, { popup = "all", closeAfter = 8, minDurability = 50, onlyMissing = false, window = {} })
     if not db.raidcheck.categories then db.raidcheck.categories = CopyTable(SRT.RaidCheck.DEFAULTS) end

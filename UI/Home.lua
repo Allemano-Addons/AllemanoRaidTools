@@ -131,7 +131,41 @@ Main.RegisterPage("home", function(page)
     pulls:SetPoint("TOPLEFT", readiness, "BOTTOMLEFT", 0, -GAP)
     pulls:SetPoint("TOPRIGHT", readiness, "BOTTOMRIGHT", 0, -GAP)
     pulls:SetHeight(160)
-    pulls.body:SetText("Every boss pull with its duration and wipe or kill.\n\n|cff7c858fArrives with Pull log.|r")
+    -- The last three pulls of tonight: #, boss, combat time, result.
+    local pullRows = {}
+    for i = 1, 3 do
+        local r = CreateFrame("Frame", nil, pulls)
+        r:SetHeight(24)
+        r:SetPoint("TOPLEFT", 18, -40 - (i - 1) * 30)
+        r:SetPoint("RIGHT", -18, 0)
+        W.Line(r, "bottom", "line")
+        r.num = W.Text(r, 0, "textDim")
+        r.num:SetPoint("LEFT")
+        r.boss = W.Text(r, 0, "text")
+        r.boss:SetPoint("LEFT", 34, 0)
+        r.result = W.Text(r, 0, "text")
+        r.result:SetPoint("RIGHT")
+        r.time = W.Text(r, 0, "textDim")
+        r.time:SetPoint("RIGHT", -110, 0)
+        pullRows[i] = r
+    end
+    local function refreshPulls()
+        local list, night = SRT.PullLog.Pulls()
+        if night ~= SRT.PullLog.NightOf() then list = {} end
+        pulls.body:SetShown(#list == 0)
+        pulls.body:SetText("No boss pulled tonight. Every pull is logged by itself: boss, time in combat, kill or wipe with the boss's health.")
+        for i, r in ipairs(pullRows) do
+            local p = list[#list - i + 1]
+            r:SetShown(p ~= nil)
+            if p then
+                r.num:SetText("#" .. (#list - i + 1))
+                r.boss:SetText(p.boss)
+                r.time:SetText(SRT.PullLog.FormatTime(p.duration))
+                r.result:SetText(SRT.PullLog.ResultText(p))
+            end
+        end
+    end
+    SRT.PullLog.OnChange(function() if page:IsShown() then refreshPulls() end end)
 
     local attendance = W.Card(page, "Attendance", "Export", go("attendance"))
     attendance:SetPoint("TOPLEFT", note, "BOTTOMLEFT", 0, -GAP)
@@ -156,6 +190,7 @@ Main.RegisterPage("home", function(page)
     return function()
         refreshNote()
         refreshReadiness()
+        refreshPulls()
         local state = SRT.Probe.CombatState()
         if state == "armed" then
             cds.body:SetText("Combat probe is armed: fight something in a dungeon, then /reload and send the SavedVariables file.")

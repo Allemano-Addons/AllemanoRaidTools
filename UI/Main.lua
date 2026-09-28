@@ -33,7 +33,6 @@ local COMING = {
     timers = "Pull and break timers already work from the header buttons, /srt pull and /srt break. This page will add custom timers.",
     cooldowns = "Raid cooldowns per player. Depends on what WoW Forever lets addons see in combat: run /srt probe combat in a dungeon.",
     bres = "Battle res tracking. Depends on the combat probe as well.",
-    pulllog = "Every boss pull tonight with duration and wipe/kill.",
     attendance = "Who was in the raid, benched or late, with an export.",
     loot = "Loot council support (later).",
 }

@@ -1171,6 +1171,67 @@ step("raid check: post missing, only missing, categories", function()
     click("Home")
 end)
 -- ---------------------------------------------------------------------------
+-- Pull log
+-- ---------------------------------------------------------------------------
+
+local PullLog = SRT.PullLog
+step("pull log: wipe with boss %, hidden health, kill, summary", function()
+    local realHp, realMax = UnitHealth, UnitHealthMax
+    local bossHp = 1000
+    UnitHealth = function(u) if u == "boss1" then return bossHp end return SECRET end
+    UnitHealthMax = function(u) if u == "boss1" then return 1000 end return SECRET end
+    local before = #SRT.db.pulls
+    -- Wipe at 45%.
+    fire("ENCOUNTER_START", 1084, "Onyxia", 9, 40)
+    advance(30)
+    bossHp = 450
+    advance(35)
+    bossHp = 1000 -- resets (heals to full) before the encounter ends: the lowest reading counts
+    advance(2)
+    UnitHealth = function(u) if u == "boss1" then return SECRET end return SECRET end
+    fire("ENCOUNTER_END", 1084, "Onyxia", 9, 40, 0)
+    local p = SRT.db.pulls[#SRT.db.pulls]
+    assert(not p.kill and p.pct == 45 and p.duration == 67, ("wipe: pct %s, %ss"):format(tostring(p.pct), tostring(p.duration)))
+    assert(chatHas("Onyxia #%d+: Wipe at 45.0%% after 1:07"), "no chat line")
+    -- Health hidden the whole fight: no %.
+    fire("ENCOUNTER_START", 1084, "Onyxia", 9, 40)
+    advance(20)
+    fire("ENCOUNTER_END", 1084, "Onyxia", 9, 40, 0)
+    p = SRT.db.pulls[#SRT.db.pulls]
+    assert(p.pct == nil, "hidden health should give no %")
+    -- Kill.
+    UnitHealth = function(u) if u == "boss1" then return bossHp end return SECRET end
+    fire("ENCOUNTER_START", 1084, "Onyxia", 9, 40)
+    advance(90)
+    fire("ENCOUNTER_END", 1084, "Onyxia", 9, 40, 1)
+    p = SRT.db.pulls[#SRT.db.pulls]
+    assert(p.kill and p.pct == nil and p.duration == 90, "kill")
+    assert(#SRT.db.pulls == before + 3, "pulls not saved")
+    local bosses, total = PullLog.Summary()
+    local ony
+    for _, s in ipairs(bosses) do if s.boss == "Onyxia" then ony = s end end
+    assert(ony and ony.pulls >= 3 and ony.kills == 1 and ony.best == 45 and ony.killTime == 90, "summary")
+    assert(total.kills == 1, "total kills")
+    assert(PullLog.PullNumber(p) == ony.pulls, "pull number")
+    UnitHealth, UnitHealthMax = realHp, realMax
+end)
+step("pull log: nights end at 06:00, page, home, delete", function()
+    assert(PullLog.NightOf(os.time({ year = 2026, month = 9, day = 29, hour = 1, min = 30 })) == "2026-09-28", "01:30 belongs to the evening before")
+    assert(PullLog.NightOf(os.time({ year = 2026, month = 9, day = 29, hour = 7 })) == "2026-09-29", "07:00 is a new night")
+    fire("ENCOUNTER_START", 1084, "Onyxia", 9, 40)
+    SlashCmdList.SLAUGHTERRAIDTOOLS("pulls")
+    assert(SRT.db.window.page == "pulllog", "/srt pulls")
+    advance(3)
+    fire("ENCOUNTER_END", 1084, "Onyxia", 9, 40, 0)
+    click("Home")
+    local _, night = PullLog.Pulls()
+    PullLog.DeleteNight(night)
+    assert(#PullLog.Pulls(night) == 0, "night not deleted")
+    click("Pull log")
+    click("Home")
+end)
+
+-- ---------------------------------------------------------------------------
 -- Auto logging
 -- ---------------------------------------------------------------------------
 
