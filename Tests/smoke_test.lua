@@ -184,7 +184,7 @@ UnitIsConnected = function() return true end
 local targetIcon, hasTarget, shiftDown = 0, true, false
 UnitExists = function(u) return u ~= "target" or hasTarget end
 GetRaidTargetIndex = function() return targetIcon ~= 0 and targetIcon or nil end
-SetRaidTarget = function(_, i) targetIcon = i end
+SetRaidTarget = function() error("forbidden: SetRaidTarget is protected on Forever") end
 IsShiftKeyDown = function() return shiftDown end
 local leaderUnit = "player"
 local assistants = {}
@@ -808,11 +808,6 @@ end)
 -- ---------------------------------------------------------------------------
 
 local Toolbar = SRT.Toolbar
-local function iconBtn(firstLine)
-    for f, s in pairs(scripts) do
-        if s.OnClick and type(f.tooltip) == "table" and f.tooltip[1] == firstLine and f._shown then return f end
-    end
-end
 local function secure(macro)
     for _, f in ipairs(allFrames) do if f._attr and f._attr.macrotext == macro then return f end end
 end
@@ -826,16 +821,21 @@ step("toolbar: world markers are secure macro buttons", function()
     end
     assert(secure("/cwm 0"), "no clear-all button")
 end)
-step("toolbar: raid target icons toggle", function()
-    local skull = assert(iconBtn("Skull on your target"), "no skull button")
-    scripts[skull].OnClick(skull, "LeftButton")
-    assert(targetIcon == 8, "skull not set")
-    scripts[skull].OnClick(skull, "LeftButton")
-    assert(targetIcon == 0, "second click should remove it")
-    hasTarget = false
-    scripts[skull].OnClick(skull, "LeftButton")
-    assert(targetIcon == 0 and chatHas("Target something first"), "no target handled")
-    hasTarget = true
+step("toolbar: target icons are secure /tm buttons (SetRaidTarget is forbidden)", function()
+    for i = 0, 8 do
+        local b = assert(secure("/tm " .. i), "no button for /tm " .. i)
+        assert(b._template == "SecureActionButtonTemplate" and b._attr.type == "macro", "/tm " .. i .. " not secure")
+    end
+end)
+step("toolbar: target icon highlight, also with a secret value in combat", function()
+    targetIcon = 8
+    fire("RAID_TARGET_UPDATE")
+    local realIndex = GetRaidTargetIndex
+    GetRaidTargetIndex = function() return SECRET end
+    fire("RAID_TARGET_UPDATE")
+    GetRaidTargetIndex = realIndex
+    targetIcon = 0
+    fire("PLAYER_TARGET_CHANGED")
 end)
 step("toolbar: pull, break, ready check, note", function()
     advance(30)
@@ -864,10 +864,10 @@ step("toolbar: items, combat waits, only in group, /srt bar", function()
     local realCombat = InCombatLockdown
     InCombatLockdown = function() return true end
     Toolbar.SetItem("marks", false)
-    assert(iconBtn("Skull on your target"), "changed in combat")
+    assert(secure("/tm 8")._shown, "changed in combat")
     InCombatLockdown = realCombat
     fire("PLAYER_REGEN_ENABLED")
-    assert(not iconBtn("Skull on your target"), "not changed after combat")
+    assert(not secure("/tm 8")._shown, "not changed after combat")
     Toolbar.SetItem("marks", true)
     Toolbar.Set("vertical", true)
     Toolbar.Set("vertical", false)

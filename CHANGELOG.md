@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1
+- Fix: clicking a raid target icon on the toolbar showed "SlaughterRaidTools has been blocked
+  from an action only available to the Blizzard UI". Setting target icons is protected on WoW
+  Forever, so the icon buttons are now secure "/tm N" macro buttons like the world markers.
+  Clicking the same icon again no longer removes it; use the x next to the icons.
+- The highlighted icon never errors in combat when the game hides the value.
+
 ## 0.4.0
 - Toolbar: a small bar outside the main window (shown by default, `/srt bar` toggles it).
   Pick what it shows (Settings > Toolbar, or right-click its colored handle):

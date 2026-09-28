@@ -1,6 +1,7 @@
 -- Toolbar: a small bar outside the main window with the tools picked in the settings:
 -- open SRT, raid target icons, world markers, ready check, pull, break and the note.
--- World markers are protected, so they are secure macro buttons ("/wm N"). A bar with
+-- Target icons and world markers are protected on WoW Forever, so they are secure macro
+-- buttons ("/tm N", "/wm N"). A bar with
 -- secure buttons may not be moved, shown, hidden or rebuilt in combat: those changes wait
 -- for combat to end.
 local _, SRT = ...
@@ -61,18 +62,6 @@ local function decorate(b, tooltip)
     end)
 end
 
-local function iconButton(texture, tooltip, onClick)
-    local b = CreateFrame("Button", nil, bar)
-    decorate(b, tooltip)
-    b.icon = b:CreateTexture(nil, "ARTWORK")
-    b.icon:SetPoint("TOPLEFT", 4, -4)
-    b.icon:SetPoint("BOTTOMRIGHT", -4, 4)
-    b.icon:SetTexture(texture)
-    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    b:SetScript("OnClick", function(self, button) SRT:Call("toolbar", onClick, self, button) end)
-    return b
-end
-
 local function textButton(label, tooltip, onClick)
     local b = CreateFrame("Button", nil, bar)
     decorate(b, tooltip)
@@ -100,12 +89,6 @@ local function secureButton(texture, tooltip, macro)
     b:SetAttribute("macrotext", macro)
     b:RegisterForClicks("AnyUp", "AnyDown")
     return b
-end
-
-local function setTarget(i)
-    if not UnitExists("target") then SRT:Print("Target something first.") return end
-    local current = GetRaidTargetIndex("target")
-    SetRaidTarget("target", current == i and 0 or i)
 end
 
 local function build()
@@ -144,14 +127,17 @@ local function build()
 
     parts.open = { textButton("SRT", "Open or close SlaughterRaidTools", function() SRT.Main.Toggle() end) }
 
+    -- Target icons are protected on WoW Forever (SetRaidTarget is forbidden for addons):
+    -- secure "/tm N" macro buttons, like the world markers.
     parts.marks = {}
     for i = 1, 8 do
-        parts.marks[i] = iconButton(ICON .. i, { ICON_NAME[i] .. " on your target", "Click again to remove it." },
-            function() setTarget(i) end)
+        parts.marks[i] = secureButton(ICON .. i, ICON_NAME[i] .. " on your target", "/tm " .. i)
     end
-    parts.marks[9] = textButton("x", "Remove the icon from your target", function()
-        if UnitExists("target") then SetRaidTarget("target", 0) end
-    end)
+    local clearMark = secureButton(nil, "Remove the icon from your target", "/tm 0")
+    clearMark.label = W.Text(clearMark, -2, "text")
+    clearMark.label:SetPoint("CENTER")
+    clearMark.label:SetText("x")
+    parts.marks[9] = clearMark
 
     parts.world = {}
     for i = 1, 8 do
@@ -258,6 +244,7 @@ end
 function Toolbar.Refresh()
     if not bar or not bar:IsShown() then return end
     local current = UnitExists("target") and GetRaidTargetIndex("target")
+    if issecretvalue and issecretvalue(current) then current = nil end -- hidden in combat
     for i = 1, 8 do paintBorder(parts.marks[i], current == i and "accent" or "line") end
     local lead = SRT.Timers.CanLead()
     for _, key in ipairs({ "readycheck", "pull", "breaktimer" }) do parts[key][1]:SetAlpha(lead and 1 or 0.4) end
