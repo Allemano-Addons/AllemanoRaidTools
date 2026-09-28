@@ -171,15 +171,18 @@ local function buildSidebar()
             b.text = W.Text(b, 0, "textDim")
             b.text:SetPoint("LEFT", 18, 0)
             b.text:SetText(item[2])
-            if item[3] then
+            -- Badge: the item's own (PROBE), or SOON for tools that are not built yet.
+            local badgeText = item[3] or (not pages[item[1]] and "SOON") or nil
+            if badgeText then
                 local badge = CreateFrame("Frame", nil, b)
                 badge:SetHeight(14)
                 badge:SetPoint("RIGHT", -16, 0)
                 W.Border(badge, "textFaint")
                 local t = W.Text(badge, -4, "textDim")
                 t:SetPoint("CENTER", 0, 0)
-                t:SetText(item[3])
+                t:SetText(badgeText)
                 badge:SetWidth(t:GetStringWidth() + 10)
+                b.badge = badgeText
             end
             b:SetScript("OnEnter", function(self) if current ~= self.id then self.text:SetTextColor(Theme:Color("text")) end end)
             b:SetScript("OnLeave", function(self) if current ~= self.id then self.text:SetTextColor(Theme:Color("textDim")) end end)

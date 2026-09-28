@@ -398,6 +398,15 @@ step("open window", function()
     assert(f and f._shown, "window not shown")
     assert(SRT.db.window.page == "home", "not on home")
 end)
+step("sidebar badges: SOON on tools not built yet", function()
+    local badges = {}
+    for f, s in pairs(scripts) do
+        if s.OnClick and f.id and f.text then badges[f.id] = f.badge or "" end
+    end
+    assert(badges.summons == "SOON" and badges.loot == "SOON", "unbuilt tools should say SOON")
+    assert(badges.cooldowns == "PROBE", "own badge kept")
+    assert(badges.notes == "" and badges.raidcheck == "" and badges.home == "", "built tools have no badge")
+end)
 step("every page opens", function()
     for _, section in ipairs(SRT.Main.NAV) do
         for _, item in ipairs(section[2]) do

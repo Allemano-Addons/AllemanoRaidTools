@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.1
+- Sidebar: tools that are not built yet are marked SOON (like PROBE on Cooldowns and Battle
+  res). The mark disappears by itself when a tool is built.
+
 ## 0.8.0
 - Auto logging: the combat log (/combatlog) starts when you enter a raid instance and stops
   when you leave (only a log SRT started; one you started yourself is left alone). Advanced
