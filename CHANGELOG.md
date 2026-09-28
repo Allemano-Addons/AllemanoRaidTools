@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.4
+- Launcher button on the screen (like Hush and AltBoard): the SRT mark in the accent color.
+  Left-click opens SRT, right-click shows the note window, drag to move. `/srt button` hides
+  or shows it.
+
 ## 0.10.3
 - SRT logo: the icon in the game's addon list (Media/SRT_icon_64), and the SRT mark in the
   accent color in the sidebar and on the toolbar's open button (Media/SRT_mark_white, a white

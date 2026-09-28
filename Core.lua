@@ -157,6 +157,7 @@ local function initDB()
     db.raidcheck = db.raidcheck or {} -- raid check: categories (editable), options
     fillDefaults(db.raidcheck, { popup = "all", closeAfter = 8, minDurability = 50, onlyMissing = false, window = {} })
     if not db.raidcheck.categories then db.raidcheck.categories = CopyTable(SRT.RaidCheck.DEFAULTS) end
+    db.launcher = db.launcher or {} -- launcher button position, hidden, locked (UI/Launcher.lua)
     db.toolbar = db.toolbar or {}  -- the small bar outside the main window (UI/Toolbar.lua)
     fillDefaults(db.toolbar, { shown = true, onlyInGroup = false, locked = false, vertical = false, rows = 1, scale = 1,
         items = { open = true, marks = true, world = true, readycheck = true, pull = true, breaktimer = true, note = true } })

@@ -1457,6 +1457,25 @@ step("auto log: dungeons only when chosen; a manual log is left alone", function
     SlashCmdList.SLAUGHTERRAIDTOOLS("")
     click("Combat log")
 end)
+step("launcher button: shown, clicks, hide and show", function()
+    assert(SRT.Launcher.IsShown(), "launcher not shown after login")
+    local btn
+    for f, s in pairs(scripts) do if s.OnClick and s.OnDragStart and f.icon and not f.text then btn = f end end
+    assert(btn, "launcher button not found")
+    local wasMain = _G.SlaughterRaidToolsFrame._shown
+    scripts[btn].OnClick(btn, "LeftButton")
+    assert(_G.SlaughterRaidToolsFrame._shown ~= wasMain, "left-click did not toggle SRT")
+    scripts[btn].OnClick(btn, "LeftButton") -- back as it was
+    local wasNote = SRT.NoteWindow.IsShown()
+    scripts[btn].OnClick(btn, "RightButton")
+    assert(SRT.NoteWindow.IsShown() ~= wasNote, "right-click did not toggle the note window")
+    scripts[btn].OnEnter(btn)
+    scripts[btn].OnLeave(btn)
+    SlashCmdList.SLAUGHTERRAIDTOOLS("button")
+    assert(not SRT.Launcher.IsShown(), "/srt button did not hide it")
+    SlashCmdList.SLAUGHTERRAIDTOOLS("button")
+    assert(SRT.Launcher.IsShown(), "/srt button did not show it")
+end)
 step("close window", function()
     SlashCmdList.SLAUGHTERRAIDTOOLS("")
     assert(not _G.SlaughterRaidToolsFrame._shown, "window did not close")

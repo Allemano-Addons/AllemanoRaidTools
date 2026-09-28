@@ -28,7 +28,7 @@ Tools marked **SOON** in the sidebar are not built yet.
 
 `/srt` open or close · `/srt note` note window · `/srt vn` visual note · `/srt check` raid check ·
 `/srt pull 10` · `/srt break 5` · `/srt rc` ready check · `/srt bar` toolbar · `/srt log` combat log ·
-`/srt version` who runs which SRT version · `/srt errors` recent errors · `/srt help` everything
+`/srt button` launcher button · `/srt version` who runs which SRT version · `/srt errors` recent errors · `/srt help` everything
 
 ## Pictures for visual notes
 
