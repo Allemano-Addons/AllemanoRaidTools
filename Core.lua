@@ -149,7 +149,13 @@ local function initDB()
     db.invite = db.invite or {}   -- invite tools (see Invites.lua)
     fillDefaults(db.invite, { ranks = {}, keyword = "inv", keywordOn = false, guildOnly = true, autoConvert = true, assists = "",
         announce = "GUILD", announceText = "Inviting the raid roster now. Whisper me if you are missing an invite." })
-    db.roster = db.roster or { text = "" } -- pasted OXM roster
+    db.roster = db.roster or { text = "" } -- pasted OXM roster (text = the one being worked on)
+    db.roster.profiles = db.roster.profiles or {} -- saved rosters by name (like MRT)
+    if not next(db.roster.profiles) then db.roster.profiles.Default = db.roster.text or "" end
+    if not db.roster.current or not db.roster.profiles[db.roster.current] then
+        db.roster.current = db.roster.profiles.Default and "Default" or next(db.roster.profiles)
+        db.roster.text = db.roster.profiles[db.roster.current]
+    end
     db.pulls = db.pulls or {}     -- pull log (PullLog.lua), newest last
     db.visual = db.visual or {}   -- visual notes: saved (encoded), draft, received, viewer position
     db.visual.saved = db.visual.saved or {}

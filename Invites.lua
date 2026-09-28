@@ -245,7 +245,61 @@ function Invites.SetRosterLines(lines)
         out[#out + 1] = line
         if i % 10 == 0 and i < #lines then out[#out + 1] = "" end
     end
-    SRT.db.roster.text = table.concat(out, "\n")
+    Invites.SetRosterText(table.concat(out, "\n"))
+end
+
+-- ---------------------------------------------------------------------------
+-- Roster profiles (like MRT): several saved rosters by name. db.roster.text is the one
+-- being worked on; every change is also saved in the current profile.
+-- ---------------------------------------------------------------------------
+
+function Invites.SetRosterText(text)
+    local r = SRT.db.roster
+    r.text = text or ""
+    r.profiles[r.current] = r.text
+end
+
+function Invites.Profiles()
+    local out = {}
+    for name in pairs(SRT.db.roster.profiles) do out[#out + 1] = name end
+    sort(out)
+    return out
+end
+
+function Invites.CurrentProfile() return SRT.db.roster.current end
+
+function Invites.SelectProfile(name)
+    local r = SRT.db.roster
+    if not r.profiles[name] then return false end
+    r.current, r.text = name, r.profiles[name]
+    changed()
+    return true
+end
+
+-- A new, empty roster with this name (or the existing one), switched to. New first, then
+-- paste: pasting first would overwrite the roster you were in (everything saves itself).
+function Invites.NewProfile(name)
+    name = strtrim(name or "")
+    if name == "" then return false end
+    local r = SRT.db.roster
+    r.profiles[name] = r.profiles[name] or ""
+    r.current, r.text = name, r.profiles[name]
+    changed()
+    return true
+end
+
+-- Deletes a profile; the last one left is kept (emptied) so there is always one.
+function Invites.DeleteProfile(name)
+    local r = SRT.db.roster
+    if not r.profiles[name] then return false end
+    r.profiles[name] = nil
+    if not next(r.profiles) then r.profiles.Default = "" end
+    if r.current == name then
+        local first = Invites.Profiles()[1]
+        r.current, r.text = first, r.profiles[first]
+    end
+    changed()
+    return true
 end
 
 -- Drag and drop only changes the plan; "Apply groups" (Invites.Sort) moves the raid.

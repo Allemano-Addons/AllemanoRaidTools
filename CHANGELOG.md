@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0
+- Roster profiles (like MRT), Invites & groups > Groups: several saved rosters by name. Pick one
+  in the menu to load it; "New" makes an empty roster with the typed name (then paste the OXM
+  roster); "Delete" removes the current one. Every change (paste, drag) saves itself in the
+  current roster. The roster you had becomes "Default".
+
 ## 0.10.5
 - Launcher button is 30 px, the same size as the Hush and AltBoard buttons.
 

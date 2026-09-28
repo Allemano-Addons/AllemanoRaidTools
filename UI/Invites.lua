@@ -156,13 +156,40 @@ Main.RegisterPage("invites", function(page)
     end
 
     -- Groups ------------------------------------------------------------------------
-    local pasteLabel = label(groupsView, "Paste the OXM roster", -1, "textDim")
-    pasteLabel:SetPoint("TOPLEFT", PAD, -4)
+    -- Roster profiles: pick, save as, delete (everything saves by itself in the current one).
+    local profileDrop = W.Dropdown(groupsView, 170, function()
+        local opts = {}
+        for _, name in ipairs(Invites.Profiles()) do opts[#opts + 1] = { value = name, label = name } end
+        return opts
+    end, function(name) Invites.SelectProfile(name) end)
+    profileDrop:SetPoint("TOPLEFT", PAD, 0)
+    local profileName = W.EditBox(groupsView, "New roster name", 26)
+    profileName:SetWidth(150)
+    profileName:SetMaxLetters(40)
+    profileName:SetPoint("LEFT", profileDrop, "RIGHT", 16, 0)
+    local saveAs = W.Button(groupsView, "New", nil, function()
+        local name = strtrim(profileName:GetText())
+        if name == "" then SRT:Print("Type a name for the new roster first.") return end
+        Invites.NewProfile(name)
+        profileName:SetText("")
+        profileName:ClearFocus()
+        SRT:Print(("New roster \"%s\": paste the OXM roster in the box."):format(name))
+    end, 26)
+    saveAs:SetPoint("LEFT", profileName, "RIGHT", 6, 0)
+    saveAs.tooltip = { "Creates an empty roster with this name and switches to it.",
+        "Then paste the OXM roster. Every change saves itself." }
+    profileName:SetScript("OnEnterPressed", function() saveAs:Click() end)
+    local deleteProfile = W.Button(groupsView, "Delete", nil, function()
+        local name = Invites.CurrentProfile()
+        W.Confirm(("Delete the roster \"%s\"?"):format(name), "Delete", function() Invites.DeleteProfile(name) end)
+    end, 26)
+    deleteProfile:SetPoint("LEFT", saveAs, "RIGHT", 6, 0)
+
     local paste = W.MultiEdit(groupsView, function(text)
-        SRT.db.roster.text = text
+        Invites.SetRosterText(text)
         refresh()
     end, 2000)
-    paste:SetPoint("TOPLEFT", PAD, -24)
+    paste:SetPoint("TOPLEFT", PAD, -36)
     paste:SetPoint("BOTTOMLEFT", PAD, 20)
     paste:SetWidth(170)
 
@@ -330,6 +357,9 @@ Main.RegisterPage("invites", function(page)
 
     local function refreshGroups()
         if not paste.edit:HasFocus() then paste.edit:SetText(SRT.db.roster.text or "") end
+        profileDrop:Set(Invites.CurrentProfile())
+        profileName.placeholder:SetShown(profileName:GetText() == "" and not profileName:HasFocus())
+        deleteProfile.tooltip = ("Deletes \"%s\"."):format(Invites.CurrentProfile() or "")
         local slots, others = Invites.Roster()
         local groups = 0
         for _, slot in ipairs(slots) do

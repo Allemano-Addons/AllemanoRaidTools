@@ -265,9 +265,13 @@ local function chatHas(pattern)
 end
 
 step("ADDON_LOADED drops errors from older versions", function()
-    SlaughterRaidToolsDB = { errors = { { t = 1, where = "ADDON_ACTION_FORBIDDEN", msg = "SetRaidTarget()", v = "0.0.0" } } }
+    SlaughterRaidToolsDB = { errors = { { t = 1, where = "ADDON_ACTION_FORBIDDEN", msg = "SetRaidTarget()", v = "0.0.0" } },
+        roster = { text = "Old\nRoster" } }
     fire("ADDON_LOADED", "SlaughterRaidTools")
     assert(#SRT.errors == 0, "old error kept")
+    local r = SRT.db.roster
+    assert(r.current == "Default" and r.profiles.Default == "Old\nRoster" and r.text == "Old\nRoster",
+        "an old roster should become the Default profile")
 end)
 step("PLAYER_LOGIN", function() fire("PLAYER_LOGIN") end)
 step("help", function() SlashCmdList.SLAUGHTERRAIDTOOLS("help") assert(chatHas("/srt version")) end)
@@ -903,6 +907,33 @@ step("drag and drop in the page", function()
     rawset(first, "IsMouseOver", nil)
     rawset(first.box, "IsMouseOver", nil)
     assert(SRT.db.roster.text:find("^Allemano Moo\nWhissel"), "member drop: " .. SRT.db.roster.text)
+end)
+step("roster profiles: save as, switch, auto save, delete", function()
+    local r = SRT.db.roster
+    assert(r.current and r.profiles[r.current], "no current profile after login")
+    Invites.SetRosterText("Default roster")
+    assert(r.profiles[r.current] == "Default roster", "not saved in the current profile")
+    local first = r.current
+    Invites.NewProfile("Onyxia")
+    assert(r.text == "" and Invites.CurrentProfile() == "Onyxia", "a new profile starts empty")
+    Invites.SetRosterText("Kogosh\nWhissel")
+    Invites.NewProfile("Hyjal")
+    Invites.SetRosterText("A\nB\nC\nD\nE\nF")
+    assert(Invites.CurrentProfile() == "Hyjal", "not switched to the new profile")
+    assert(r.profiles[first] == "Default roster", "the first roster was overwritten")
+    -- A drag changes the current profile only.
+    Invites.MoveToGroup(1, 2)
+    assert(r.profiles.Hyjal:find("^%-\nB"), "drag not saved in the profile")
+    assert(Invites.SelectProfile("Onyxia") and r.text == "Kogosh\nWhissel", "switching did not load the roster")
+    local names = table.concat(Invites.Profiles(), ",")
+    assert(names:find("Hyjal") and names:find("Onyxia"), "profiles: " .. names)
+    -- The page shows and switches them.
+    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    click("Invites & groups")
+    click("Groups")
+    -- Delete everything: one empty profile is always left.
+    for _, n in ipairs(Invites.Profiles()) do Invites.DeleteProfile(n) end
+    assert(#Invites.Profiles() == 1 and r.profiles[r.current] == "" and r.text == "", "no empty profile left")
 end)
 step("auto assist when they join", function()
     wipe(promotedUnits)
