@@ -171,19 +171,24 @@ Main.RegisterPage("raidcheck", function(page)
                 local cr, cg, cb = Theme.ClassColor(data.classFile)
                 if cr then r.name:SetTextColor(cr, cg, cb) else r.name:SetTextColor(Theme:Color("text")) end
                 for i, c in ipairs(cats) do
-                    local fs = r.cells[i]
-                    if not fs then
-                        fs = label(r, "", -2, "text")
-                        fs:SetJustifyH("CENTER")
-                        r.cells[i] = fs
+                    local btn = r.cells[i]
+                    if not btn then
+                        btn = CreateFrame("Button", nil, r)
+                        btn.fs = label(btn, "", -2, "text")
+                        btn.fs:SetAllPoints()
+                        btn.fs:SetJustifyH("CENTER")
+                        btn:SetScript("OnEnter", function(self) RaidCheck.ShowCellTooltip(self, self.row, self.cat, self.cell) end)
+                        btn:SetScript("OnLeave", function() RaidCheck.HideCellTooltip() end)
+                        r.cells[i] = btn
                     end
-                    fs:ClearAllPoints()
-                    fs:SetPoint("LEFT", NAME_W + (i - 1) * colW, 0)
-                    fs:SetWidth(colW)
+                    btn:ClearAllPoints()
+                    btn:SetPoint("LEFT", NAME_W + (i - 1) * colW, 0)
+                    btn:SetSize(colW, ROW_H)
                     local cell = data.cells[c.id] or { state = "unknown", text = "" }
-                    fs:SetText(cell.text)
-                    fs:SetTextColor(Theme:Color(CELL_COLOR[cell.state] or "text"))
-                    fs:Show()
+                    btn.row, btn.cat, btn.cell = data, c, cell
+                    btn.fs:SetText(cell.text)
+                    btn.fs:SetTextColor(Theme:Color(CELL_COLOR[cell.state] or "text"))
+                    btn:Show()
                 end
                 for i = #cats + 1, #r.cells do r.cells[i]:Hide() end
                 r:Show()
@@ -204,7 +209,7 @@ Main.RegisterPage("raidcheck", function(page)
 
     local catScroll = CreateFrame("ScrollFrame", nil, catView)
     catScroll:SetPoint("TOPLEFT", PAD, -40)
-    catScroll:SetPoint("BOTTOMRIGHT", -PAD, 56)
+    catScroll:SetPoint("BOTTOMRIGHT", -PAD, 92)
     local catBody = CreateFrame("Frame", nil, catScroll)
     catBody:SetSize(10, 10)
     catScroll:SetScrollChild(catBody)
@@ -295,13 +300,16 @@ Main.RegisterPage("raidcheck", function(page)
         W.Confirm("Replace all categories with the defaults?", "Reset", function() RaidCheck.ResetCategories() end)
     end, 26)
     resetBtn:SetPoint("LEFT", addBtn, "RIGHT", 10, 0)
-    local autoToggle = W.Toggle(catView, function(on) db.autoOpen = on end)
-    autoToggle:SetPoint("LEFT", resetBtn, "RIGHT", 24, 0)
-    local autoLabel = label(catView, "Open on ready check (leader)", -1, "textDim")
-    autoLabel:SetPoint("LEFT", autoToggle, "RIGHT", 8, 0)
+    local popupLabel = label(catView, "Ready check window", -1, "textDim")
+    popupLabel:SetPoint("BOTTOMLEFT", PAD, 58)
+    local popupSeg = W.Segment(catView, { { value = "all", label = "Everyone" }, { value = "lead", label = "Leader/assist" },
+        { value = "off", label = "Off" } }, function(v) db.popup = v end)
+    popupSeg:SetPoint("LEFT", popupLabel, "RIGHT", 10, 0)
+    local durLabel = label(catView, "Durability", -1, "textDim")
+    durLabel:SetPoint("LEFT", popupSeg, "RIGHT", 24, 0)
     local durSlider = W.Slider(catView, 10, 90, 5, 100, function(v) return ("below %d%% = missing"):format(v) end,
         function(v) db.minDurability = v end)
-    durSlider:SetPoint("LEFT", autoLabel, "RIGHT", 24, 0)
+    durSlider:SetPoint("LEFT", durLabel, "RIGHT", 10, 0)
 
     function refresh()
         tabs:Set(mode)
@@ -316,7 +324,7 @@ Main.RegisterPage("raidcheck", function(page)
             refreshCheck()
         else
             refreshCategories()
-            autoToggle:Set(db.autoOpen)
+            popupSeg:Set(db.popup or "all")
             durSlider:Set(db.minDurability or 50)
         end
     end

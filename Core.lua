@@ -142,7 +142,7 @@ local function initDB()
         announce = "GUILD", announceText = "Inviting the raid roster now. Whisper me if you are missing an invite." })
     db.roster = db.roster or { text = "" } -- pasted OXM roster
     db.raidcheck = db.raidcheck or {} -- raid check: categories (editable), options
-    fillDefaults(db.raidcheck, { autoOpen = true, minDurability = 50, onlyMissing = false })
+    fillDefaults(db.raidcheck, { popup = "all", minDurability = 50, onlyMissing = false, window = {} })
     if not db.raidcheck.categories then db.raidcheck.categories = CopyTable(SRT.RaidCheck.DEFAULTS) end
     db.toolbar = db.toolbar or {}  -- the small bar outside the main window (UI/Toolbar.lua)
     fillDefaults(db.toolbar, { shown = true, onlyInGroup = false, locked = false, vertical = false, rows = 1, scale = 1,

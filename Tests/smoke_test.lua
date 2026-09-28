@@ -1019,12 +1019,13 @@ step("raid check: SRT reports for oil and durability", function()
     assert(cellOf(res, "Whissel Ljud", "dur").state == "no" and cellOf(res, "Whissel Ljud", "oil").state == "no", "Whissel report")
     assert(cellOf(res, "Nobody Here", "oil").state == "unknown", "no SRT = unknown")
 end)
-step("raid check: ready check opens it, reports go out, answers are shown", function()
+step("raid check: ready check opens its own window, reports go out, answers are shown", function()
     advance(30)
     sent = {}
-    SRT.Main.Toggle()
+    local mainShown = _G.SlaughterRaidToolsFrame._shown
     fire("READY_CHECK", "Allemano Moo", 30)
-    assert(SRT.db.window.page == "raidcheck", "raid check did not open for the leader")
+    assert(SRT.ReadyWindow.IsShown(), "ready check window did not open")
+    assert(_G.SlaughterRaidToolsFrame._shown == mainShown, "the main window should not open")
     local kinds = {}
     for _, m in ipairs(sent) do kinds[#kinds + 1] = m.text:match("^1|(%u+)|") end
     local k = table.concat(kinds, ",")
@@ -1042,7 +1043,56 @@ step("raid check: ready check opens it, reports go out, answers are shown", func
     sent = {}
     advance(4)
 end)
+step("ready window: timer, tooltips, live buffs, closing", function()
+    -- Tooltip on a buff icon uses the game's own buff tooltip.
+    local tipBuff
+    GameTooltip = setmetatable({ SetUnitBuffByAuraInstanceID = function(_, unit, id) tipBuff = unit .. ":" .. tostring(id) end },
+        { __index = function() return function() end end })
+    auraOverride.raid2 = { { name = "Supreme Power", spellId = 17628, icon = 134821, auraInstanceID = 77, expirationTime = now + 3600 } }
+    RaidCheck.Scan()
+    local flaskCell
+    for f, s in pairs(scripts) do
+        if s.OnEnter and f.cat and f.cat.id == "flask" and f.row and f.row.name == "Kogosh Boll" and f.cell and f.cell.aura then flaskCell = f end
+    end
+    assert(flaskCell, "no flask cell for Kogosh")
+    scripts[flaskCell].OnEnter(flaskCell)
+    assert(tipBuff == "raid2:77", "tooltip: " .. tostring(tipBuff))
+    scripts[flaskCell].OnLeave(flaskCell)
+    -- Whissel takes a flask during the check: UNIT_AURA scans again.
+    auraOverride.raid3 = { { name = "Supreme Power", spellId = 17628, expirationTime = now + 7200 } }
+    fire("UNIT_AURA", "raid3")
+    advance(1)
+    assert(cellOf(RaidCheck.Last(), "Whissel Ljud", "flask").state == "yes", "not rescanned on UNIT_AURA")
+    -- Not everyone ready: stays 15 s after the check.
+    fire("READY_CHECK_FINISHED")
+    assert(cellOf(RaidCheck.Last(), "Nobody Here", "ready").text == "afk", "no answer should be afk")
+    advance(5)
+    assert(SRT.ReadyWindow.IsShown(), "closed too early")
+    advance(11)
+    assert(not SRT.ReadyWindow.IsShown(), "did not close after 15 s")
+    -- Everyone ready: closes after 3 s.
+    fire("READY_CHECK", "Allemano Moo", 30)
+    for i = 2, 4 do fire("READY_CHECK_CONFIRM", "raid" .. i, true) end
+    fire("READY_CHECK_FINISHED")
+    advance(4)
+    assert(not SRT.ReadyWindow.IsShown(), "did not close 3 s after everyone was ready")
+    -- Off: no window.
+    SRT.db.raidcheck.popup = "off"
+    fire("READY_CHECK", "Allemano Moo", 30)
+    assert(not SRT.ReadyWindow.IsShown(), "window opened while off")
+    fire("READY_CHECK_FINISHED")
+    SRT.db.raidcheck.popup = "all"
+    SlashCmdList.SLAUGHTERRAIDTOOLS("rcwindow")
+    assert(SRT.ReadyWindow.IsShown(), "/srt rcwindow")
+    advance(50)
+    assert(not SRT.ReadyWindow.IsShown(), "test window did not close after its timer")
+    auraOverride.raid2, auraOverride.raid3 = nil, nil
+    GameTooltip = nil
+    sent = {}
+end)
 step("raid check: post missing, only missing, categories", function()
+    auraOverride.raid3 = { { name = "Arcane Intellect", spellId = 10157, expirationTime = now + 1500 } }
+    RaidCheck.Scan()
     local before = #chatLines
     RaidCheck.PostMissing()
     advance(3)

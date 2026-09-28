@@ -129,7 +129,10 @@ local function readAuras(unit)
         local ok, a = pcall(get, unit, i, "HELPFUL")
         if not ok or not a then break end
         local name = safe(a.name)
-        if name then out[#out + 1] = { name = name, spellId = safe(a.spellId), expires = safe(a.expirationTime) } end
+        if name then
+            out[#out + 1] = { name = name, spellId = safe(a.spellId), expires = safe(a.expirationTime),
+                icon = safe(a.icon), id = safe(a.auraInstanceID) }
+        end
     end
     return out
 end
@@ -159,7 +162,8 @@ function RaidCheck.Scan()
             local kind = c.kind or "aura"
             if kind == "ready" then
                 local r = ready[key]
-                if r == nil then cell = { state = "unknown", text = "..." }
+                if r == nil then cell = { state = "unknown", text = RaidCheck.running and "..." or "" }
+                elseif r == "afk" then cell = { state = "no", text = "afk" }
                 elseif r then cell = { state = "yes", text = "ok" }
                 else cell = { state = "no", text = "no" } end
             elseif kind == "weapon" then
@@ -177,26 +181,31 @@ function RaidCheck.Scan()
             elseif not auras then
                 cell = { state = "unknown", text = m.online and "?" or "off" }
             elseif kind == "blessings" then
-                local list, seen = {}, {}
+                local list, seen, found = {}, {}, {}
                 for _, a in ipairs(auras) do
                     if matches(parsed[c.id], a.name, a.spellId) then
                         local s = blessShort(a.name)
-                        if not seen[s] then seen[s] = true list[#list + 1] = s end
+                        if not seen[s] then
+                            seen[s] = true
+                            list[#list + 1] = s
+                            found[#found + 1] = a
+                        end
                     end
                 end
                 sort(list)
-                cell = { state = #list > 0 and "yes" or "no", text = #list > 0 and table.concat(list, " ") or "x" }
+                cell = { state = #list > 0 and "yes" or "no", text = #list > 0 and table.concat(list, " ") or "x", auras = found }
             else
                 local best
                 for _, a in ipairs(auras) do
                     if matches(parsed[c.id], a.name, a.spellId) then
                         local left = a.expires and a.expires > 0 and max(0, a.expires - now) or nil
-                        if not best or (left or math.huge) > (best.left or math.huge) then best = { left = left } end
+                        if not best or (left or math.huge) > (best.left or math.huge) then best = { left = left, aura = a } end
                     end
                 end
                 if best then
                     local left = best.left
-                    cell = { state = (left and left < 600) and "low" or "yes", text = left and ("%dm"):format(floor(left / 60)) or "ok" }
+                    cell = { state = (left and left < 600) and "low" or "yes", text = left and ("%dm"):format(floor(left / 60)) or "ok",
+                        aura = best.aura, left = left }
                 else
                     cell = { state = c.optional and "optional" or "no", text = "x" }
                 end
@@ -326,15 +335,27 @@ function RaidCheck.Refresh()
     C_Timer.After(3, function() SRT:Call("raid check", RaidCheck.Scan) end)
 end
 
-SRT:RegisterEvent("READY_CHECK", function(_, initiator)
+-- Everyone answered "ready" (after the check, nobody unanswered).
+function RaidCheck.AllReady()
+    for _, m in ipairs(SRT.Compat.GroupRoster()) do
+        if ready[SRT.Compat.NameKey(m.name)] ~= true then return false end
+    end
+    return true
+end
+
+-- A ready check: the SRT ready check window shows everyone's consumables while it runs
+-- (db.raidcheck.popup = "all", "lead" or "off"); our own report goes to the leader.
+SRT:RegisterEvent("READY_CHECK", function(_, initiator, timeLeft)
     wipe(ready)
+    RaidCheck.running = true
     -- The initiator is ready by default.
     if initiator then ready[SRT.Compat.NameKey(initiator)] = true end
     reports[SRT.Compat.NameKey(SRT.Compat.PlayerName())] = ownReport()
     if IsInGroup() then sendReport() end
-    if SRT.Compat.IsLeaderOrAssist() and db().autoOpen then
+    local popup = db().popup
+    if popup == "all" or (popup == "lead" and SRT.Compat.IsLeaderOrAssist()) then
         RaidCheck.Refresh()
-        SRT.Main.Toggle("raidcheck")
+        if SRT.ReadyWindow then SRT.ReadyWindow.Start(tonumber(timeLeft) or 30) end
     elseif scan then
         RaidCheck.Scan()
     end
@@ -345,6 +366,71 @@ SRT:RegisterEvent("READY_CHECK_CONFIRM", function(_, unit, isReady)
     if name then ready[SRT.Compat.NameKey(name)] = isReady and true or false end
     if scan then RaidCheck.Scan() end
 end)
+
+SRT:RegisterEvent("READY_CHECK_FINISHED", function()
+    RaidCheck.running = nil
+    -- Who never answered was away.
+    for _, m in ipairs(SRT.Compat.GroupRoster()) do
+        local key = SRT.Compat.NameKey(m.name)
+        if ready[key] == nil then ready[key] = "afk" end
+    end
+    if scan then RaidCheck.Scan() end
+    if SRT.ReadyWindow then SRT.ReadyWindow.Finish(RaidCheck.AllReady()) end
+end)
+
+-- Buffs change during the check (people take their flask): scan again, at most twice a second.
+local auraPending
+SRT:RegisterEvent("UNIT_AURA", function(_, unit)
+    if auraPending or not (SRT.ReadyWindow and SRT.ReadyWindow.IsShown()) then return end
+    if not unit or not (unit == "player" or unit:match("^raid%d") or unit:match("^party%d")) then return end
+    auraPending = true
+    C_Timer.After(0.5, function()
+        auraPending = nil
+        SRT:Call("raid check", RaidCheck.Scan)
+    end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Tooltip for one cell: the game's own buff tooltip when possible.
+-- ---------------------------------------------------------------------------
+
+local function fmtLeft(left)
+    if not left then return nil end
+    if left >= 3600 then return ("%dh %dm left"):format(floor(left / 3600), floor(left % 3600 / 60)) end
+    return ("%dm %ds left"):format(floor(left / 60), floor(left % 60))
+end
+
+function RaidCheck.ShowCellTooltip(owner, row, cat, cell)
+    if not cell then return end
+    local aura = cell.aura
+    if aura and GameTooltip and row.unit then
+        GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+        local ok = aura.id and GameTooltip.SetUnitBuffByAuraInstanceID
+            and pcall(GameTooltip.SetUnitBuffByAuraInstanceID, GameTooltip, row.unit, aura.id, "HELPFUL")
+        if not ok and aura.spellId and GameTooltip.SetSpellByID then ok = pcall(GameTooltip.SetSpellByID, GameTooltip, aura.spellId) end
+        if not ok then GameTooltip:SetText(aura.name) end
+        GameTooltip:AddLine(row.name .. (cell.left and (" \194\183 " .. fmtLeft(cell.left)) or ""), 0.6, 0.64, 0.68)
+        GameTooltip:Show()
+        return
+    end
+    local lines = { cat.name .. " \194\183 " .. row.name }
+    if cell.auras then
+        for _, a in ipairs(cell.auras) do lines[#lines + 1] = a.name end
+    elseif cell.state == "unknown" then
+        lines[#lines + 1] = (cat.kind == "weapon" or cat.kind == "durability") and "Unknown: no SRT (or no report yet)."
+            or "Unknown: out of range or offline."
+    elseif cell.state == "no" or cell.state == "optional" then
+        lines[#lines + 1] = cat.kind == "ready" and "Not ready" or "Missing"
+    else
+        lines[#lines + 1] = cell.text
+    end
+    SRT.Widgets.ShowTooltip(owner, lines)
+end
+
+function RaidCheck.HideCellTooltip()
+    if GameTooltip then GameTooltip:Hide() end
+    SRT.Widgets.HideTooltip()
+end
 
 SRT:AddSlashCommand("check", function()
     RaidCheck.Refresh()

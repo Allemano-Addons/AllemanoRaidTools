@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.0
+- Ready check window: a ready check opens a small SRT window (not the main window) with the
+  ready check timer in the title, a ready/not ready/waiting icon and the name in class color
+  per player, and one column per category showing the buff's own icon (orange line = less
+  than 10 min left, red x = missing, ? = out of range / no SRT). It updates when people take
+  their buffs and closes itself 3 s after everyone is ready, or 15 s after the check when
+  someone was not ready or away (afk). Drag the title to move it; "Details" opens the raid
+  check page. `/srt rcwindow` shows it without a ready check.
+- Mouse over a buff (in the window and in the raid check table) shows the game's tooltip for
+  that buff: which flask, food etc. and the time left.
+- Setting "Ready check window": Everyone (default), Leader/assist or Off (Raid check >
+  Categories). The main window no longer opens on a ready check.
+
 ## 0.6.1
 - Errors saved by an older SRT version are dropped when a new version loads (they were
   fixed); `/srt errors` only shows the current version's.
