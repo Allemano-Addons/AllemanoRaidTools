@@ -7,7 +7,12 @@ param(
     [Parameter(Mandatory = $true)][string]$Src,
     [string]$Name = ""
 )
+$ErrorActionPreference = "Stop" # never write an empty picture after an error
 Add-Type -AssemblyName System.Drawing
+if (-not (Test-Path $Src)) { throw "File not found: $Src" }
+if ([System.IO.Path]::GetExtension($Src).ToLower() -notin ".png", ".jpg", ".jpeg", ".bmp", ".gif") {
+    throw "Only PNG, JPG, BMP or GIF can be converted (not $([System.IO.Path]::GetExtension($Src))). Save the picture as PNG first."
+}
 # Note: PowerShell variable names ignore case, so $W and $w would be the same variable.
 $W = 1024; $H = 512
 if ($Name -eq "") { $Name = [System.IO.Path]::GetFileNameWithoutExtension($Src) }

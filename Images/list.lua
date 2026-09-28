@@ -3,4 +3,5 @@
 local _, SRT = ...
 SRT.ImageList = {
     "test_shot",
+    "wailing_caverns",
 }
