@@ -144,6 +144,17 @@ Main.RegisterPage("toolbar", function(page)
         toggle(o[1], LEFT, y, function() return t[o[2]] end, function(on) SRT.Toolbar.Set(o[2], on) end)
         y = y + 34
     end
+    local rowsLabel = W.Text(page, 0, "text")
+    rowsLabel:SetPoint("TOPLEFT", LEFT, -(y + 5))
+    local rows = W.Segment(page, { { value = 1, label = "1" }, { value = 2, label = "2" }, { value = 3, label = "3" } },
+        function(v) SRT.Toolbar.Set("rows", v) end)
+    rows:SetPoint("TOPLEFT", LEFT + 80, -y)
+    rows.refresh = function()
+        rows:Set(t.rows or 1)
+        rowsLabel:SetText(t.vertical and "Columns" or "Rows")
+    end
+    controls[#controls + 1] = rows
+    y = y + 36
     local scaleLabel = W.Text(page, 0, "text")
     scaleLabel:SetPoint("TOPLEFT", LEFT, -(y + 4))
     scaleLabel:SetText("Size")

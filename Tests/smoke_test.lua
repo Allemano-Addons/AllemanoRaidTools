@@ -870,6 +870,19 @@ step("toolbar: items, combat waits, only in group, /srt bar", function()
     fire("PLAYER_REGEN_ENABLED")
     assert(not secure("/tm 8")._shown, "not changed after combat")
     Toolbar.SetItem("marks", true)
+    -- Rows: groups stay whole and in order; the longest line is as short as possible.
+    local g = function(len) return { len = len } end
+    local lines = Toolbar.SplitLines({ g(40), g(226), g(226), g(170) }, 2)
+    assert(#lines == 2 and #lines[1] == 2 and #lines[2] == 2, "2 rows: open+marks / world+rest")
+    lines = Toolbar.SplitLines({ g(40), g(226), g(226), g(170) }, 3)
+    assert(#lines == 3 and #lines[1] == 2 and #lines[2] == 1 and #lines[3] == 1, "3 rows")
+    assert(#Toolbar.SplitLines({ g(40) }, 3) == 1, "never more lines than groups")
+    assert(#Toolbar.SplitLines({}, 2) == 1, "no groups")
+    for _, rows in ipairs({ 2, 3, 1 }) do
+        Toolbar.Set("rows", rows)
+        Toolbar.Set("vertical", true)
+        Toolbar.Set("vertical", false)
+    end
     Toolbar.Set("vertical", true)
     Toolbar.Set("vertical", false)
     SRT.db.toolbar.onlyInGroup = true

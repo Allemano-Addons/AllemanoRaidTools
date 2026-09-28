@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.3
+- Toolbar rows: 1, 2 or 3 rows (columns when vertical), in Settings > Toolbar or the handle's
+  right-click menu. Button groups stay together and are split so the rows are as even as
+  possible.
+
 ## 0.4.2
 - Fix: the toolbar x next to the world markers did not remove them ("/cwm 0" does nothing on
   WoW Forever). It now clears markers 1-8 one by one.

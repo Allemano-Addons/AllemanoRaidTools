@@ -186,6 +186,50 @@ local function wanted()
     return true
 end
 
+-- Splits groups ({ len }) into at most `count` lines, keeping their order, so the longest
+-- line is as short as possible. Returns { { group, ... }, ... }.
+function Toolbar.SplitLines(groups, count)
+    local n = #groups
+    count = max(1, min(count, n))
+    if n == 0 then return { {} } end
+    local function lineLen(a, b)
+        local len = 0
+        for i = a, b do len = len + groups[i].len + (i > a and GROUP_GAP or 0) end
+        return len
+    end
+    local best, bestCuts
+    -- cuts = the last group index of every line but the last.
+    local function try(cuts, start, left)
+        if left == 1 then
+            local worst, a = 0, 1
+            for _, c in ipairs(cuts) do
+                worst = max(worst, lineLen(a, c))
+                a = c + 1
+            end
+            worst = max(worst, lineLen(a, n))
+            if not best or worst < best then best, bestCuts = worst, { unpack(cuts) } end
+            return
+        end
+        for c = start, n - left + 1 do
+            cuts[#cuts + 1] = c
+            try(cuts, c + 1, left - 1)
+            cuts[#cuts] = nil
+        end
+    end
+    try({}, 1, count)
+    local lines, a = {}, 1
+    for _, c in ipairs(bestCuts) do
+        local line = {}
+        for i = a, c do line[#line + 1] = groups[i] end
+        lines[#lines + 1] = line
+        a = c + 1
+    end
+    local last = {}
+    for i = a, n do last[#last + 1] = groups[i] end
+    lines[#lines + 1] = last
+    return lines
+end
+
 -- Places the chosen items; hides the rest. Waits for the end of combat if needed.
 function Toolbar.Layout()
     if not SRT.db then return end
@@ -198,8 +242,6 @@ function Toolbar.Layout()
     if not bar then build() end
     local t = db()
     local vertical = t.vertical
-    local x = HANDLE + 2
-    local thickness = SIZE + 4
     handle:ClearAllPoints()
     if vertical then
         handle:SetPoint("TOPLEFT")
@@ -210,35 +252,51 @@ function Toolbar.Layout()
         handle:SetPoint("BOTTOMLEFT")
         handle:SetWidth(HANDLE)
     end
-    local first = true
+
+    -- The chosen groups and their length along the bar.
+    local groups = {}
     for _, item in ipairs(Toolbar.ITEMS) do
-        local list = parts[item[1]]
-        local on = t.items[item[1]]
-        if on and not first then x = x + GROUP_GAP - GAP end
-        for _, b in ipairs(list) do
+        local on = t.items[item[1]] and true or false
+        local len = 0
+        for i, b in ipairs(parts[item[1]]) do
             b:ClearAllPoints()
-            b:SetShown(on and true or false)
-            if on then
+            b:SetShown(on)
+            len = len + (vertical and SIZE or b:GetWidth()) + (i > 1 and GAP or 0)
+        end
+        if on then groups[#groups + 1] = { buttons = parts[item[1]], len = len } end
+    end
+
+    -- Rows (columns when vertical): groups stay whole, in order, split so the longest
+    -- line is as short as possible.
+    local lines = Toolbar.SplitLines(groups, t.rows or 1)
+    local across = 2          -- position across the lines
+    local longest = 0
+    for _, line in ipairs(lines) do
+        local along = HANDLE + 2
+        local thick = SIZE
+        if vertical then
+            for _, grp in ipairs(line) do
+                for _, b in ipairs(grp.buttons) do thick = max(thick, b:GetWidth()) end
+            end
+        end
+        for gi, grp in ipairs(line) do
+            if gi > 1 then along = along + GROUP_GAP end
+            for bi, b in ipairs(grp.buttons) do
+                if bi > 1 then along = along + GAP end
                 if vertical then
-                    b:SetPoint("TOP", bar, "TOP", 0, -x)
-                    x = x + SIZE + GAP
+                    b:SetPoint("TOP", bar, "TOPLEFT", across + thick / 2, -along)
+                    along = along + SIZE
                 else
-                    b:SetPoint("LEFT", bar, "LEFT", x, 0)
-                    x = x + b:GetWidth() + GAP
+                    b:SetPoint("TOPLEFT", bar, "TOPLEFT", along, -across)
+                    along = along + b:GetWidth()
                 end
             end
         end
-        if on then first = false end
+        longest = max(longest, along)
+        across = across + thick + GAP
     end
-    -- Vertical text buttons are as wide as the widest one.
-    if vertical then
-        for _, item in ipairs(Toolbar.ITEMS) do
-            for _, b in ipairs(parts[item[1]]) do thickness = max(thickness, b:GetWidth() + 4) end
-        end
-        bar:SetSize(thickness, x + 1)
-    else
-        bar:SetSize(x + 1, thickness)
-    end
+    across = across - GAP + 2
+    if vertical then bar:SetSize(across, longest + 3) else bar:SetSize(longest + 3, across) end
     bar:SetScale(t.scale or 1)
     bar:Show()
     Toolbar.Refresh()
@@ -265,6 +323,7 @@ function Toolbar.Set(key, value)
     db()[key] = value
     Toolbar.Layout()
     if pending then SRT:Print("The toolbar changes after combat.") end
+    SRT.Main.Refresh() -- the settings page shows these too
 end
 
 function Toolbar.SetItem(item, on)
@@ -281,6 +340,11 @@ function Toolbar.Menu()
     end
     items[#items + 1] = { text = "Options", title = true }
     items[#items + 1] = { text = "Vertical", checked = t.vertical, onClick = function() Toolbar.Set("vertical", not t.vertical) end }
+    local unit = t.vertical and "column" or "row"
+    for n = 1, 3 do
+        items[#items + 1] = { text = ("%d %s%s"):format(n, unit, n > 1 and "s" or ""), checked = (t.rows or 1) == n,
+            onClick = function() Toolbar.Set("rows", n) end }
+    end
     items[#items + 1] = { text = "Lock position", checked = t.locked, onClick = function() Toolbar.Set("locked", not t.locked) end }
     items[#items + 1] = { text = "Only in a group", checked = t.onlyInGroup, onClick = function() Toolbar.Set("onlyInGroup", not t.onlyInGroup) end }
     items[#items + 1] = { text = "More settings...", onClick = function() SRT.Main.Toggle("toolbar") end }
