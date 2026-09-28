@@ -1638,6 +1638,40 @@ step("mob lists: each mob gets the next free icon of its list, locked, reset aft
     mouseover = nil
     instance[1], instance[2], instance[3] = false, "none", "Kalimdor"
 end)
+step("own timers: presets, shared as leader, received from an assistant, stop", function()
+    local T = SRT.Timers
+    advance(30)
+    sent = {}
+    assert(T.AddPreset("Flasks", 60) and not T.AddPreset("", 5) and not T.AddPreset("X", "abc"), "add preset")
+    local found
+    for _, p in ipairs(T.Presets()) do if p.label == "Flasks" and p.seconds == 3600 then found = true end end
+    assert(found, "preset not saved")
+    -- Leader in a raid: shared.
+    T.Custom("Buffs", 300)
+    local function near(v, want) return v and math.abs(v - want) < 0.01 end
+    assert(near(T.Remaining("c:Buffs"), 300), "not running")
+    assert(sent[1] and sent[1].text:find("|TIMER|.*c|300|Buffs$"), "not shared")
+    sent = {}
+    -- From an assistant.
+    assistants.raid2 = true
+    fire("CHAT_MSG_ADDON", "SRT", "1|TIMER|4|1|1|c|120|Soulstone", "RAID", "Kogosh Boll")
+    assistants.raid2 = nil
+    assert(near(T.Remaining("c:Soulstone"), 120), "assistant timer not shown")
+    local running = T.Running()
+    assert(#running >= 2 and running[1].label == "Soulstone", "running list / order")
+    -- The page: start a preset by its button, stop from the list.
+    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    click("Timers")
+    click("Flasks  60:00")
+    assert(near(T.Remaining("c:Flasks"), 3600), "preset button did not start it")
+    T.StopKind("c:Buffs")
+    assert(T.Remaining("c:Buffs") == nil and sent[#sent].text:find("c|0|Buffs$"), "stop not shared")
+    T.StopKind("c:Soulstone")
+    T.StopKind("c:Flasks")
+    T.RemovePreset(#T.Presets())
+    sent = {}
+    click("Home")
+end)
 step("launcher button: shown, clicks, hide and show", function()
     assert(SRT.Launcher.IsShown(), "launcher not shown after login")
     local btn

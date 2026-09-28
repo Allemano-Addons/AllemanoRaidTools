@@ -141,6 +141,7 @@ local function initDB()
     fillDefaults(db.settings, DEFAULT_SETTINGS)
     db.window = db.window or {}   -- main window position, last page
     db.timers = db.timers or {}   -- timer bar position, running timers (survive /reload)
+    db.timers.presets = db.timers.presets or { { label = "Buffs", seconds = 300 }, { label = "Soulstone", seconds = 900 } }
     db.notes = db.notes or {}     -- the leader's saved notes: list, selected, nextId
     db.notes.list = db.notes.list or {}
     db.notes.nextId = db.notes.nextId or 1

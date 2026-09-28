@@ -41,15 +41,20 @@ local function getAnchor()
     return anchor
 end
 
+-- Pull first, then break, then own timers by the time they end.
 local function layout()
-    local i = 0
-    for _, kind in ipairs({ "pull", "break" }) do
+    local order = {}
+    for kind in pairs(active) do order[#order + 1] = kind end
+    local rank = { pull = 1, ["break"] = 2 }
+    sort(order, function(a, b)
+        local ra, rb = rank[a] or 3, rank[b] or 3
+        if ra ~= rb then return ra < rb end
+        return active[a].endsAt < active[b].endsAt
+    end)
+    for i, kind in ipairs(order) do
         local bar = bars[kind]
-        if bar and bar:IsShown() then
-            bar:ClearAllPoints()
-            bar:SetPoint("TOP", getAnchor(), "TOP", 0, -i * (BAR_H + GAP))
-            i = i + 1
-        end
+        bar:ClearAllPoints()
+        bar:SetPoint("TOP", getAnchor(), "TOP", 0, -(i - 1) * (BAR_H + GAP))
     end
 end
 
@@ -197,11 +202,77 @@ end
 SRT.Comm.Register("TIMER", function(sender, payload)
     local unit = SRT.Compat.UnitForName(sender)
     if not unit or not SRT.Compat.IsLeaderOrAssist(unit) then return end
+    -- Own timers: "c|seconds|label".
+    local cs, label = payload:match("^c|(%d+)|(.+)$")
+    if cs then
+        Timers.Start("c:" .. label, tonumber(cs), label)
+        return
+    end
     local kind, seconds = payload:match("^(%a+)|(%d+)$")
     seconds = tonumber(seconds)
     if kind ~= "pull" and kind ~= "break" then return end
     Timers.Start(kind, seconds, kind == "pull" and "Pull" or "Break")
 end)
+
+-- ---------------------------------------------------------------------------
+-- Own timers ("Buffs 5 min"): saved as presets, started for yourself or, as leader or
+-- assistant in a group, for everyone with SRT.
+-- ---------------------------------------------------------------------------
+
+local function cleanLabel(label) return (strtrim(label or ""):gsub("|", ""):sub(1, 30)) end
+
+-- Starts (seconds > 0) or stops (0) an own timer; shared when you may lead a group.
+function Timers.Custom(label, seconds)
+    label = cleanLabel(label)
+    if label == "" then return false end
+    seconds = floor(tonumber(seconds) or 0)
+    local kind = "c:" .. label
+    if seconds > 0 then Timers.Start(kind, seconds, label) else Timers.Stop(kind) end
+    if IsInGroup() and SRT.Compat.IsLeaderOrAssist() then
+        SRT.Comm.Send("TIMER", ("c|%d|%s"):format(max(0, seconds), label))
+    end
+    return true
+end
+
+-- Running timers: { { kind, label, left } }, pull and break first.
+function Timers.Running()
+    local out = {}
+    for kind, t in pairs(active) do
+        out[#out + 1] = { kind = kind, label = t.label, left = max(0, t.endsAt - GetTime()) }
+    end
+    sort(out, function(a, b) return a.left < b.left end)
+    return out
+end
+
+-- Stops any running timer by kind (own timers are stopped for the group too).
+function Timers.StopKind(kind)
+    if kind:sub(1, 2) == "c:" then
+        Timers.Custom(kind:sub(3), 0)
+    elseif kind == "break" then
+        Timers.Break(0)
+    elseif kind == "pull" then
+        Timers.Pull(0)
+    else
+        Timers.Stop(kind)
+    end
+end
+
+function Timers.Presets() return SRT.db.timers.presets end
+
+function Timers.AddPreset(label, minutes)
+    label, minutes = cleanLabel(label), tonumber(minutes)
+    if label == "" or not minutes or minutes <= 0 then return false end
+    local list = SRT.db.timers.presets
+    for _, p in ipairs(list) do
+        if p.label == label then p.seconds = floor(minutes * 60) return true end
+    end
+    list[#list + 1] = { label = label, seconds = floor(minutes * 60) }
+    return true
+end
+
+function Timers.RemovePreset(i)
+    tremove(SRT.db.timers.presets, i)
+end
 
 -- Blizzard's countdown started (by anyone): our own pull bar would be a duplicate.
 SRT:RegisterEvent("START_PLAYER_COUNTDOWN", function()

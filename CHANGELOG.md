@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.0
+- Timers page (During > Timers): quick Pull 10/15 and Break 5/10/15 buttons; own timers saved
+  as presets ("Buffs 5:00", "Soulstone 15:00"; add with a name and minutes, x removes) and
+  started with one click. As raid leader or assistant an own timer shows for everyone with
+  SRT (like the break bar), otherwise only for you. Everything running is listed with its
+  time left and Stop. Own timers get their own bars under pull and break.
+
 ## 0.13.2
 - Fix: presses that marked nothing used up a mob's list ("next icon -1"). An icon now only
   counts as used when the game has put it on the unit (RAID_TARGET_UPDATE).
