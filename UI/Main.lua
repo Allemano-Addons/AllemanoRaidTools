@@ -25,7 +25,6 @@ Main.NAV = {
 
 -- What each page will do, shown until it is built.
 local COMING = {
-    visualnote = "Draw positions on a map of the boss room and send the picture with the note.",
     reminders = "Personal reminders that pop up at the right moment (\"Soulstone on pull\", \"Bring fire resistance\").",
     buffs = "Assign buffs (Fortitude, Mark of the Wild, Intellect...) per class and group, and post the assignments.",
     summons = "See who is not in the raid's zone and post the summon list in raid chat (/srt summon).",

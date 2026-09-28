@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.10.0
+- Visual note (Plan > Visual note): draw with a pen, lines, arrows, raid icons and text in 8
+  colors and 3 widths; erase, undo, clear. Background: none, the current map (the game's own
+  map picture, everyone has it) or a picture from SlaughterRaidTools\Images (only its name is
+  sent: everyone needs the same file). Save drawings by name, load and delete them.
+- "Send to raid" shares it (solo: "Show to me"). By default only drawings from the raid
+  leader and assistants are shown; Settings > Advanced > "Visual notes from everyone" allows
+  anyone in the group. The viewer opens by itself (can be turned off), moves, resizes (2:1)
+  and stays through ESC. `/srt vn` shows or hides it.
+- Light: strokes are simplified (points that add nothing are dropped) and sent as 4
+  characters per point; a note is at most 12 kB (a few kB normally); it is only drawn while
+  a window shows it, at most 1500 line pieces.
+- Tools\img2tga.ps1 turns a screenshot into a 1024x512 picture in Images (restart WoW after
+  adding pictures). Images	est_shot.tga is a test picture.
+
 ## 0.9.0
 - Pull log (After > Pull log, `/srt pulls`): every boss pull is logged by itself with the boss,
   the instance, the time in combat and kill or wipe with the boss's lowest health during the

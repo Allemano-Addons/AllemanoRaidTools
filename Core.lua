@@ -104,6 +104,8 @@ local DEFAULT_SETTINGS = {
     logDungeons = false,   -- ... and in 5-man dungeons
     advancedLogging = true, -- switch on advanced combat logging with it (Warcraft Logs)
     logAnnounce = true,    -- say in chat when the log starts or stops
+    vnAcceptEveryone = false, -- visual notes from anyone in the group (default: leader and assistants)
+    vnAutoShow = true,     -- open the viewer when a visual note arrives
 }
 
 local function fillDefaults(dst, src)
@@ -146,6 +148,9 @@ local function initDB()
         announce = "GUILD", announceText = "Inviting the raid roster now. Whisper me if you are missing an invite." })
     db.roster = db.roster or { text = "" } -- pasted OXM roster
     db.pulls = db.pulls or {}     -- pull log (PullLog.lua), newest last
+    db.visual = db.visual or {}   -- visual notes: saved (encoded), draft, received, viewer position
+    db.visual.saved = db.visual.saved or {}
+    db.visual.viewer = db.visual.viewer or {}
     db.raidcheck = db.raidcheck or {} -- raid check: categories (editable), options
     fillDefaults(db.raidcheck, { popup = "all", closeAfter = 8, minDurability = 50, onlyMissing = false, window = {} })
     if not db.raidcheck.categories then db.raidcheck.categories = CopyTable(SRT.RaidCheck.DEFAULTS) end

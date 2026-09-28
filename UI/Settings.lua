@@ -216,6 +216,8 @@ Main.RegisterPage("advanced", function(page)
     p:Heading("Notes")
     p:Toggle("Open on new note", "Shows the note window when the raid leader sends a note.", "noteAutoShow")
     p:Toggle("Show personal note", "Your personal note under the raid note.", "notePersonal")
+    p:Toggle("Visual notes from everyone", "Off: only the raid leader and assistants can share drawings with you.", "vnAcceptEveryone")
+    p:Toggle("Open on new visual note", "Shows the drawing when someone shares one.", "vnAutoShow")
 
     p:Heading("Development")
     p:Toggle("Addon message debug", "Prints every SRT message sent and received in chat.", "debugComm")

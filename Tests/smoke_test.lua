@@ -36,7 +36,7 @@ local function mock(kind)
         if k == "SetAlpha" then return function(self, v) self._alpha = v end end
         if k == "Insert" then return function(self, v) self._text = (self._text or "") .. v end end
         if k == "SetAttribute" then return function(self, key, v) self._attr = self._attr or {}; self._attr[key] = v end end
-        if k == "CreateTexture" or k == "CreateFontString" then return function() return mock(k) end end
+        if k == "CreateTexture" or k == "CreateFontString" or k == "CreateLine" then return function() return mock(k) end end
         if GETTERS[k] ~= nil then local v = GETTERS[k]; return function() return v end end
         return function() end
     end })
@@ -82,7 +82,8 @@ end
 UISpecialFrames = {}
 GetServerTime = function() return 1790000000 + now end
 GetPhysicalScreenSize = function() return 2560, 1440 end
-GetCursorPosition = function() return 500, 500 end
+local cursor = { 500, 500 }
+GetCursorPosition = function() return cursor[1], cursor[2] end
 UnitClass = function() return "Druid", "DRUID", 11 end
 RAID_CLASS_COLORS = { DRUID = { r = 1, g = 0.49, b = 0.04 }, MAGE = { r = 0.25, g = 0.78, b = 0.92 } }
 LOCALIZED_CLASS_NAMES_MALE = { DRUID = "Druid", MAGE = "Mage" }
@@ -164,7 +165,9 @@ UnitGUID = function(u) return "Player-1-" .. u end
 GetNormalizedRealmName = function() return "ClassicBetaPvP2" end
 UnitFullName = function() return "Allemano", "ClassicBetaPvP2" end
 UnitPosition = function() return 1, 2, 0, 1 end
-C_Map = { GetBestMapForUnit = function() return 1411 end }
+C_Map = { GetBestMapForUnit = function() return 1411 end,
+    GetMapArtLayers = function() return { { layerWidth = 1002, layerHeight = 668, tileWidth = 256, tileHeight = 256 } } end,
+    GetMapArtLayerTextures = function() local t = {} for i = 1, 12 do t[i] = 100000 + i end return t end }
 
 -- A raid of four: us, two raiders with SRT (one on an older version) and one without.
 local ROSTER = {
@@ -1228,6 +1231,152 @@ step("pull log: nights end at 06:00, page, home, delete", function()
     PullLog.DeleteNight(night)
     assert(#PullLog.Pulls(night) == 0, "night not deleted")
     click("Pull log")
+    click("Home")
+end)
+
+-- ---------------------------------------------------------------------------
+-- Visual note
+-- ---------------------------------------------------------------------------
+
+local VN = SRT.VisualNote
+step("visual note: encode and decode every item type", function()
+    local note = { title = "Ony^ P2 ~", bg = { kind = "map", ref = 1411 }, items = {
+        { k = "p", c = 2, w = 3, pts = { 0, 0, 4095, 4095, 100.4, 2000 } },
+        { k = "l", c = 1, w = 1, x1 = 10, y1 = 20, x2 = 30, y2 = 40 },
+        { k = "a", c = 5, w = 2, x1 = 1, y1 = 2, x2 = 3000, y2 = 4000 },
+        { k = "i", n = 8, x = 2048, y = 1024 },
+        { k = "t", c = 6, x = 5, y = 6, s = "Tanks here\nthen ~ move" },
+    } }
+    local data = VN.Encode(note)
+    assert(not data:find("[\t\n]"), "tab or newline in the payload")
+    local back = VN.Decode(data)
+    assert(back and back.title == "Ony P2 ~" and back.bg.kind == "map" and back.bg.ref == 1411, "header")
+    assert(#back.items == 5, "items: " .. #back.items)
+    local p = back.items[1]
+    assert(p.k == "p" and p.c == 2 and p.w == 3 and p.pts[4] == 4095 and p.pts[5] == 100 and p.pts[6] == 2000, "stroke")
+    assert(back.items[3].k == "a" and back.items[3].y2 == 4000, "arrow")
+    assert(back.items[4].n == 8 and back.items[4].x == 2048, "icon")
+    assert(back.items[5].s == "Tanks here\nthen ~ move", "text: " .. back.items[5].s)
+    assert(VN.Decode("garbage") == nil and VN.Decode(data:sub(1, #data - 3)) == nil, "bad data must give nil")
+    assert(VN.Decode("1^image^../x^t^") and VN.Decode("1^image^../x^t^").bg.ref == "../x", "decode keeps the ref as sent")
+    local img = VN.Decode(VN.Encode({ title = "", bg = { kind = "image", ref = "../evil path" }, items = {} }))
+    assert(img.bg.ref == "evilpath", "image name not cleaned: " .. tostring(img.bg.ref))
+end)
+step("visual note: strokes are simplified and capped", function()
+    local line = {}
+    for i = 0, 99 do line[#line + 1] = i * 30; line[#line + 1] = 500 end
+    assert(#VN.Simplify(line) == 4, "a straight stroke should keep only its ends")
+    local zig = {}
+    for i = 0, 99 do zig[#zig + 1] = i * 30; zig[#zig + 1] = (i % 2) * 400 end
+    local z = VN.Simplify(zig)
+    assert(#z / 2 >= 90, "corners of a zigzag must stay")
+    local long = {}
+    for i = 1, 1000 do long[#long + 1] = i * 4; long[#long + 1] = (i % 2) * 300 end
+    assert(#VN.Simplify(long) / 2 <= VN.MAX_POINTS + 1, "stroke not capped")
+    -- Rendering is capped too.
+    local c = VN.CreateCanvas(UIParent)
+    local huge = { bg = { kind = "none" }, items = { { k = "p", c = 1, w = 1, pts = {} } } }
+    for i = 1, 4000 do huge.items[1].pts[i] = (i * 7) % 4096 end
+    assert(VN.Render(c, huge) == VN.MAX_SEGMENTS, "segments not capped")
+end)
+step("visual note: drawing on the page", function()
+    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    click("Visual note")
+    VN.Draft().items = {}
+    VN.Changed()
+    local canvas
+    for f, s in pairs(scripts) do if s.OnMouseDown and f.lines and f.used then canvas = f end end
+    assert(canvas, "no canvas")
+    local function at(x, y) cursor[1], cursor[2] = x, y end
+    -- Pen: down, move, up.
+    at(150, 700)
+    scripts[canvas].OnMouseDown(canvas, "LeftButton")
+    for i = 1, 30 do
+        at(150 + i * 10, 700 - (i % 2) * 20)
+        scripts[canvas].OnUpdate(canvas)
+    end
+    scripts[canvas].OnMouseUp(canvas, "LeftButton")
+    local items = VN.Draft().items
+    assert(#items == 1 and items[1].k == "p" and #items[1].pts >= 4, "no stroke")
+    -- Arrow.
+    click("Arrow")
+    at(200, 600)
+    scripts[canvas].OnMouseDown(canvas, "LeftButton")
+    at(400, 500)
+    scripts[canvas].OnUpdate(canvas)
+    scripts[canvas].OnMouseUp(canvas, "LeftButton")
+    assert(#items == 2 and items[2].k == "a", "no arrow")
+    -- Icon.
+    click("Icon")
+    at(300, 400)
+    scripts[canvas].OnMouseDown(canvas, "LeftButton")
+    assert(#items == 3 and items[3].k == "i" and items[3].n == 8, "no icon")
+    -- Text.
+    click("Text")
+    at(350, 450)
+    scripts[canvas].OnMouseDown(canvas, "LeftButton")
+    local edit
+    for f, s in pairs(scripts) do if s.OnEnterPressed and f.at then edit = f end end
+    assert(edit, "no text box")
+    edit:SetText("Tanks")
+    scripts[edit].OnEnterPressed(edit)
+    assert(#items == 4 and items[4].s == "Tanks", "no text")
+    -- Erase the icon.
+    click("Erase")
+    at(300, 400)
+    scripts[canvas].OnMouseDown(canvas, "LeftButton")
+    assert(#items == 3 and items[3].k == "t", "icon not erased")
+    click("Undo")
+    assert(#items == 2, "undo")
+    -- Background: current map.
+    click("Current map")
+    assert(VN.Draft().bg.kind == "map" and VN.Draft().bg.ref == 1411, "map background")
+    -- Save, load, delete.
+    VN.Save("Plan A")
+    VN.Draft().items = {}
+    assert(VN.Load("Plan A") and #VN.Draft().items == 2, "load")
+    VN.Delete("Plan A")
+    assert(#VN.SavedNames() == 0, "delete")
+end)
+step("visual note: sharing, who is accepted, viewer", function()
+    advance(30)
+    sent = {}
+    VN.Send()
+    assert(sent[1] and sent[1].text:find("^1|VN|"), "not sent")
+    assert(SRT.VisualViewer.IsShown(), "viewer not shown to the sender")
+    SRT.VisualViewer.Hide()
+    -- Build a note as if Kogosh sent it.
+    local data = VN.Encode({ title = "Kogosh plan", bg = { kind = "none" }, items = { { k = "i", n = 1, x = 10, y = 10 } } })
+    sent = {}
+    SRT.Comm.Send("VN", data)
+    advance(20)
+    local parts = sent
+    sent = {}
+    local function deliverFrom(who)
+        for _, m in ipairs(parts) do fire("CHAT_MSG_ADDON", "SRT", m.text, "RAID", who) end
+    end
+    deliverFrom("Kogosh Boll")
+    assert(select(2, VN.Received()).sender ~= "Kogosh Boll", "accepted from a normal raider")
+    SRT.db.settings.vnAcceptEveryone = true
+    deliverFrom("Kogosh Boll")
+    local note, info = VN.Received()
+    assert(info.sender == "Kogosh Boll" and note.title == "Kogosh plan", "not accepted with 'everyone'")
+    assert(SRT.VisualViewer.IsShown(), "viewer did not open")
+    SRT.db.settings.vnAcceptEveryone = false
+    SlashCmdList.SLAUGHTERRAIDTOOLS("vn")
+    assert(not SRT.VisualViewer.IsShown(), "/srt vn did not hide")
+    -- Too big: refused before sending.
+    local big = VN.Draft()
+    big.items = {}
+    for i = 1, 120 do
+        local pts = {}
+        for j = 1, 60 do pts[#pts + 1] = (i * j * 13) % 4096; pts[#pts + 1] = (i * 7 + j * 31) % 4096 end
+        big.items[#big.items + 1] = { k = "p", c = 1, w = 1, pts = pts }
+    end
+    sent = {}
+    assert(VN.Send() == false and #sent == 0, "oversized note sent")
+    big.items = {}
+    VN.Changed()
     click("Home")
 end)
 
