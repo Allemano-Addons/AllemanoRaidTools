@@ -7,7 +7,7 @@ local Theme, W = SRT.Theme, SRT.Widgets
 local Launcher = {}
 SRT.Launcher = Launcher
 
-local SIZE = 32
+local SIZE = 30 -- same as the Hush and AltBoard buttons
 local button
 
 local function db() return SRT.db.launcher end
@@ -26,8 +26,8 @@ local function build()
     button.bg:SetAllPoints()
     button.border = W.Border(button, "line")
     button.icon = button:CreateTexture(nil, "ARTWORK")
-    button.icon:SetPoint("TOPLEFT", 5, -5)
-    button.icon:SetPoint("BOTTOMRIGHT", -5, 5)
+    button.icon:SetPoint("TOPLEFT", 4, -4)
+    button.icon:SetPoint("BOTTOMRIGHT", -4, 4)
     if button.icon:SetTexture(SRT.MARK) ~= false then
         W.OnAccent(function(r, g, b) button.icon:SetVertexColor(r, g, b, 1) end)
     else

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.5
+- Launcher button is 30 px, the same size as the Hush and AltBoard buttons.
+
 ## 0.10.4
 - Launcher button on the screen (like Hush and AltBoard): the SRT mark in the accent color.
   Left-click opens SRT, right-click shows the note window, drag to move. `/srt button` hides
