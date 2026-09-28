@@ -28,9 +28,8 @@ local function build()
     button.icon = button:CreateTexture(nil, "ARTWORK")
     button.icon:SetPoint("TOPLEFT", 4, -4)
     button.icon:SetPoint("BOTTOMRIGHT", -4, 4)
-    if button.icon:SetTexture(ART.MARK) ~= false then
-        W.OnAccent(function(r, g, b) button.icon:SetVertexColor(r, g, b, 1) end)
-    else
+    -- The ART mark in its own colors (an accent square if the file does not load).
+    if button.icon:SetTexture(ART.MARK) == false then
         W.OnAccent(function(r, g, b) button.icon:SetColorTexture(r, g, b, 1) end)
     end
     button:SetScript("OnDragStart", function(self) if not db().locked then self:StartMoving() end end)

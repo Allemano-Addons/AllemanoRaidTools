@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.1
+- New ART logo: Media/wow/icon.tga in the addon list, Media/wow/mark.tga in the sidebar, on the
+  launcher button and on the toolbar's open button, shown in its own colors (white and red).
+  The old logo files are removed. Media/png and Media/svg hold the source pictures.
+
 ## 0.15.0
 - Renamed: SlaughterRaidTools (SRT) is now **Allemano Raid Tools (ART)**, part of Allemano
   Addons. Folder and TOC AllemanoRaidTools, saved data AllemanoRaidToolsDB, commands /art

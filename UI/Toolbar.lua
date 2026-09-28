@@ -125,13 +125,12 @@ local function build()
     end)
     handle:SetScript("OnLeave", function() W.HideTooltip() end)
 
-    -- Open ART: the ART mark in the accent color ("ART" as text if the file does not load).
+    -- Open ART: the ART mark in its own colors ("ART" as text if the file does not load).
     local open = textButton("", "Open or close Allemano Raid Tools", function() ART.Main.Toggle() end)
     open.mark = open:CreateTexture(nil, "ARTWORK")
     if open.mark:SetTexture(ART.MARK) ~= false then
         open.mark:SetSize(18, 18)
         open.mark:SetPoint("CENTER")
-        W.OnAccent(function(r, g, b) open.mark:SetVertexColor(r, g, b, 1) end)
     else
         open:SetLabel("ART")
     end

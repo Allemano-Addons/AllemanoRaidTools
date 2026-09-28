@@ -114,13 +114,12 @@ local function buildSidebar()
     logo:SetPoint("TOPRIGHT")
     logo:SetHeight(LOGO_H)
     W.Line(logo, "bottom", "line")
-    -- The ART mark in the accent color (a plain accent square if the file does not load).
+    -- The ART mark in its own colors (a plain accent square if the file does not load).
     local square = logo:CreateTexture(nil, "ARTWORK")
     local hasMark = square:SetTexture(ART.MARK) ~= false
     if hasMark then
-        square:SetSize(22, 22)
-        square:SetPoint("LEFT", 14, 0)
-        W.OnAccent(function(r, g, b) square:SetVertexColor(r, g, b, 1) end)
+        square:SetSize(24, 24)
+        square:SetPoint("LEFT", 13, 0)
     else
         square:SetSize(8, 8)
         square:SetPoint("LEFT", 18, 0)

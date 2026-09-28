@@ -3,9 +3,9 @@ local addonName, ART = ...
 
 ART.name = addonName
 ART.SCHEMA = 1
--- The ART mark in white (Media/ART_mark_white.tga, made from Media/ART_logo_512.png), tinted
--- with the accent color wherever it is shown.
-ART.MARK = "Interface\\AddOns\\" .. addonName .. "\\Media\\ART_mark_white"
+-- The ART mark (Media/wow/mark.tga, white and red on transparent) shown in its own colors;
+-- Media/wow/icon.tga (the mark on a dark tile) is the addon list icon (TOC).
+ART.MARK = "Interface\\AddOns\\" .. addonName .. "\\Media\\wow\\mark"
 
 function ART:Print(...)
     local msg = strjoin(" ", tostringall(...))
