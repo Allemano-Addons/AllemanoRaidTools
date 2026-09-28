@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.2
+- Fix: presses that marked nothing used up a mob's list ("next icon -1"). An icon now only
+  counts as used when the game has put it on the unit (RAID_TARGET_UPDATE).
+- /srt markdebug: clearer lines ("list used up", "now has icon N").
+
 ## 0.13.1
 - Fix: Ctrl + mouse wheel did not mark. The mark button took both key down and key up; a
   wheel notch only has "down", and the lock set after "down" stopped the macro the game runs

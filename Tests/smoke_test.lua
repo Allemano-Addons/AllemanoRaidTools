@@ -1578,11 +1578,11 @@ step("mob lists: each mob gets the next free icon of its list, locked, reset aft
     local function scrollOver(mob)
         mouseover = mob
         fire("UPDATE_MOUSEOVER_UNIT")
-        if press(btn) ~= false then
-            local icon = tonumber(btn._attr.macrotext:match("(%d)$"))
-            mob.icon = icon
-        end
+        local marked = press(btn) ~= false
+        if marked then mob.icon = tonumber(btn._attr.macrotext:match("(%d)$")) end
         scripts[btn].PostClick(btn)
+        -- The game tells about the new icon a moment later.
+        if marked then fire("RAID_TARGET_UPDATE") end
         return mob.icon
     end
     instance[1], instance[2], instance[3] = true, "raid", "Tempest Keep"
@@ -1595,6 +1595,14 @@ step("mob lists: each mob gets the next free icon of its list, locked, reset aft
     M.SetSlot("Tempest Keep", "Bloodwarder Marshal", 1, 6)
     assert(table.concat(SRT.db.marks.mobs["Tempest Keep"]["Phoenix-Hawk"], ",") == "8,7,6,5", "hawk list")
     M.StartOver()
+    -- A press the game ignored (no icon, no RAID_TARGET_UPDATE) must not use up the list.
+    local ghost = { name = "Phoenix-Hawk" }
+    mouseover = ghost
+    fire("UPDATE_MOUSEOVER_UNIT")
+    press(btn)
+    scripts[btn].PostClick(btn)
+    mouseover = nil
+    fire("UPDATE_MOUSEOVER_UNIT")
     local h1, h2 = { name = "Phoenix-Hawk" }, { name = "Phoenix-Hawk" }
     local marshal, h3 = { name = "Bloodwarder Marshal" }, { name = "Phoenix-Hawk" }
     assert(scrollOver(h1) == 8 and scrollOver(h2) == 7, "hawks: skull, cross")

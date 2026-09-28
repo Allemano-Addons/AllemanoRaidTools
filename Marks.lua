@@ -109,22 +109,37 @@ function Marks.Prepare()
     local list = not UnitIsPlayer("mouseover") and Marks.ListFor(name)
     if list then
         setFixed(Marks.NextFree(list) or -1)
-        debug("%s: list, next icon %s", tostring(name), tostring(button:GetAttribute("srt-fixed")))
+        local nextIcon = button:GetAttribute("srt-fixed")
+        debug(nextIcon > 0 and "%s: list, next icon %s" or "%s: list, all its icons are used (Start over)", tostring(name), tostring(nextIcon))
     else
         setFixed(0)
         debug("%s: no list, general order", tostring(name))
     end
 end
 
--- After a press: remember the icon that was given, and lock the unit (it has one now).
+-- After a press: stop a second press on the same unit until the game has set the icon
+-- (RAID_TARGET_UPDATE prepares again). An icon only counts as used once the game shows
+-- it on the unit (a press that marked nothing must not use up the list).
 local function afterPress()
-    debug("pressed: macro \"%s\" (mouseover: %s)", tostring(button:GetAttribute("macrotext")),
-        tostring(UnitExists("mouseover") and safe(UnitName("mouseover")) or "nothing"))
-    if InCombatLockdown() then return end
     local fixed = button:GetAttribute("srt-fixed") or 0
-    local icon = fixed > 0 and fixed or tonumber((button:GetAttribute("macrotext") or ""):match("(%d)$"))
-    if icon then usedIcons[icon] = true end
-    if db().lock then setFixed(-1) else Marks.Prepare() end
+    local who = tostring(UnitExists("mouseover") and safe(UnitName("mouseover")) or "nothing")
+    if fixed < 0 then
+        debug("pressed: nothing to do (already marked, or its list is used up: Start over) (mouseover: %s)", who)
+    else
+        debug("pressed: macro \"%s\" (mouseover: %s)", tostring(button:GetAttribute("macrotext")), who)
+    end
+    if InCombatLockdown() then return end
+    if db().lock and fixed >= 0 then setFixed(-1) else Marks.Prepare() end
+end
+
+-- The game set (or removed) an icon: the one on the unit under the mouse is now in use.
+local function iconChanged()
+    local icon = UnitExists("mouseover") and safe(GetRaidTargetIndex("mouseover"))
+    if icon then
+        usedIcons[icon] = true
+        debug("%s now has icon %d", tostring(safe(UnitName("mouseover"))), icon)
+    end
+    Marks.Prepare()
 end
 
 SRT:AddSlashCommand("markdebug", function()
@@ -244,5 +259,5 @@ end)
 -- Just before combat locks the button: use the general order in the fight.
 SRT:RegisterEvent("PLAYER_REGEN_DISABLED", function() if button then button:SetAttribute("srt-fixed", 0) end end)
 SRT:RegisterEvent("UPDATE_MOUSEOVER_UNIT", function() Marks.Prepare() end)
-SRT:RegisterEvent("RAID_TARGET_UPDATE", function() Marks.Prepare() end)
+SRT:RegisterEvent("RAID_TARGET_UPDATE", function() SRT:Call("mark", iconChanged) end)
 SRT:RegisterEvent("ZONE_CHANGED_NEW_AREA", function() if not InCombatLockdown() then wipe(usedIcons) end end)
