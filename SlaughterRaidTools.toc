@@ -1,8 +1,9 @@
 ## Interface: 16001
 ## Title: SlaughterRaidTools
 ## Notes: Raid tools for WoW Forever: notes, invites, timers, markers, summons and raid checks
-## Version: 0.10.2
+## Version: 0.10.3
 ## SavedVariables: SlaughterRaidToolsDB
+## IconTexture: Interface\AddOns\SlaughterRaidTools\Media\SRT_icon_64
 
 Core.lua
 Compat.lua

@@ -125,7 +125,17 @@ local function build()
     end)
     handle:SetScript("OnLeave", function() W.HideTooltip() end)
 
-    parts.open = { textButton("SRT", "Open or close SlaughterRaidTools", function() SRT.Main.Toggle() end) }
+    -- Open SRT: the SRT mark in the accent color ("SRT" as text if the file does not load).
+    local open = textButton("", "Open or close SlaughterRaidTools", function() SRT.Main.Toggle() end)
+    open.mark = open:CreateTexture(nil, "ARTWORK")
+    if open.mark:SetTexture(SRT.MARK) ~= false then
+        open.mark:SetSize(18, 18)
+        open.mark:SetPoint("CENTER")
+        W.OnAccent(function(r, g, b) open.mark:SetVertexColor(r, g, b, 1) end)
+    else
+        open:SetLabel("SRT")
+    end
+    parts.open = { open }
 
     -- Target icons are protected on WoW Forever (SetRaidTarget is forbidden for addons):
     -- secure "/tm N" macro buttons, like the world markers.

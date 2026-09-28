@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.3
+- SRT logo: the icon in the game's addon list (Media/SRT_icon_64), and the SRT mark in the
+  accent color in the sidebar and on the toolbar's open button (Media/SRT_mark_white, a white
+  copy of the mark made from SRT_logo_512.png so it can take any accent color).
+
 ## 0.10.2
 - Visual note: Picture has a menu with the pictures in the Images folder. An addon cannot
   list a folder, so Images\list.lua holds the names: Tools\img2tga.ps1 updates it, and

@@ -116,10 +116,18 @@ local function buildSidebar()
     logo:SetPoint("TOPRIGHT")
     logo:SetHeight(LOGO_H)
     W.Line(logo, "bottom", "line")
+    -- The SRT mark in the accent color (a plain accent square if the file does not load).
     local square = logo:CreateTexture(nil, "ARTWORK")
-    square:SetSize(8, 8)
-    square:SetPoint("LEFT", 18, 0)
-    W.OnAccent(function(r, g, b) square:SetColorTexture(r, g, b, 1) end)
+    local hasMark = square:SetTexture(SRT.MARK) ~= false
+    if hasMark then
+        square:SetSize(22, 22)
+        square:SetPoint("LEFT", 14, 0)
+        W.OnAccent(function(r, g, b) square:SetVertexColor(r, g, b, 1) end)
+    else
+        square:SetSize(8, 8)
+        square:SetPoint("LEFT", 18, 0)
+        W.OnAccent(function(r, g, b) square:SetColorTexture(r, g, b, 1) end)
+    end
     local srt = W.Text(logo, 4, "text")
     srt:SetPoint("LEFT", square, "RIGHT", 8, 0)
     srt:SetText("SRT")

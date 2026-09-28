@@ -3,6 +3,9 @@ local addonName, SRT = ...
 
 SRT.name = addonName
 SRT.SCHEMA = 1
+-- The SRT mark in white (Media/SRT_mark_white.tga, made from Media/SRT_logo_512.png), tinted
+-- with the accent color wherever it is shown.
+SRT.MARK = "Interface\\AddOns\\" .. addonName .. "\\Media\\SRT_mark_white"
 
 function SRT:Print(...)
     local msg = strjoin(" ", tostringall(...))
