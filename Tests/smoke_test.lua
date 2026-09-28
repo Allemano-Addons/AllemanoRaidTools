@@ -251,7 +251,11 @@ local function chatHas(pattern)
     return false
 end
 
-step("ADDON_LOADED", function() fire("ADDON_LOADED", "SlaughterRaidTools") end)
+step("ADDON_LOADED drops errors from older versions", function()
+    SlaughterRaidToolsDB = { errors = { { t = 1, where = "ADDON_ACTION_FORBIDDEN", msg = "SetRaidTarget()", v = "0.0.0" } } }
+    fire("ADDON_LOADED", "SlaughterRaidTools")
+    assert(#SRT.errors == 0, "old error kept")
+end)
 step("PLAYER_LOGIN", function() fire("PLAYER_LOGIN") end)
 step("help", function() SlashCmdList.SLAUGHTERRAIDTOOLS("help") assert(chatHas("/srt version")) end)
 step("full name has the surname", function() assert(SRT.Compat.PlayerName() == "Allemano Moo", SRT.Compat.PlayerName()) end)

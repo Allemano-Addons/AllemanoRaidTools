@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+- Errors saved by an older SRT version are dropped when a new version loads (they were
+  fixed); `/srt errors` only shows the current version's.
+
 ## 0.6.0
 - Raid check (Before pull > Raid check, `/srt check`): a table of the group with one column
   per category. Cells show minutes left, "ok", "x" (missing, red), "?" (out of range or no

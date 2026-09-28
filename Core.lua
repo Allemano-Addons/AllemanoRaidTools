@@ -166,6 +166,11 @@ SRT:RegisterEvent("ADDON_LOADED", function(_, name)
     if name ~= addonName then return end
     initDB()
     SRT.version = SRT.Compat.GetAddOnMetadata(addonName, "Version") or "?"
+    -- Errors from an older version were fixed (or are no longer relevant): drop them.
+    for i = #SRT.errors, 1, -1 do
+        local v = SRT.errors[i].v
+        if v and v ~= SRT.version then tremove(SRT.errors, i) end
+    end
 end)
 
 SRT:RegisterEvent("PLAYER_LOGIN", function()
