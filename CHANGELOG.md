@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+- Fix: the toolbar x next to the world markers did not remove them ("/cwm 0" does nothing on
+  WoW Forever). It now clears markers 1-8 one by one.
+
 ## 0.4.1
 - Fix: clicking a raid target icon on the toolbar showed "SlaughterRaidTools has been blocked
   from an action only available to the Blizzard UI". Setting target icons is protected on WoW

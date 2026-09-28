@@ -149,7 +149,11 @@ local function build()
         strip:SetHeight(2)
         W.OnAccent(function(r, g, b) strip:SetColorTexture(r, g, b, 1) end)
     end
-    local clearWorld = secureButton(nil, "Remove all world markers", "/cwm 0")
+    -- "/cwm 0" does nothing on Forever: clear the eight markers one by one.
+    local clearAll = {}
+    for i = 1, 8 do clearAll[i] = "/cwm " .. i end
+    Toolbar.CLEAR_WORLD = table.concat(clearAll, "\n")
+    local clearWorld = secureButton(nil, "Remove all world markers", Toolbar.CLEAR_WORLD)
     clearWorld.label = W.Text(clearWorld, -2, "text")
     clearWorld.label:SetPoint("CENTER")
     clearWorld.label:SetText("x")

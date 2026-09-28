@@ -819,7 +819,8 @@ step("toolbar: world markers are secure macro buttons", function()
         local b = assert(secure("/wm " .. i), "no button for /wm " .. i)
         assert(b._template == "SecureActionButtonTemplate" and b._attr.type == "macro", "world marker " .. i .. " not secure")
     end
-    assert(secure("/cwm 0"), "no clear-all button")
+    local clear = assert(secure("/cwm 1\n/cwm 2\n/cwm 3\n/cwm 4\n/cwm 5\n/cwm 6\n/cwm 7\n/cwm 8"), "no clear-all button")
+    assert(#clear._attr.macrotext <= 255, "macro text too long")
 end)
 step("toolbar: target icons are secure /tm buttons (SetRaidTarget is forbidden)", function()
     for i = 0, 8 do
