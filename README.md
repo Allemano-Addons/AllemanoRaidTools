@@ -17,9 +17,10 @@ notes, ready check info and timers are shared between SRT users.
 | **Notes** | The raid leader writes notes and sends them; everyone sees them in the note window (`/srt note`). Raid icons `{skull}`, names in class color, `{p:Name}...{/p}` lines only those players see. A personal note of your own. |
 | **Visual note** | Draw on a map or picture (pen, lines, arrows, icons, text) and share it with the raid (`/srt vn`). |
 | **Raid check** | Flasks, elixirs, food, buffs, oil and durability for the whole raid. A ready check opens a small window with everyone's buff icons (mouse over for details). Categories are editable. |
-| **Invites & groups** | Invite by guild rank or whisper keyword, auto convert and assist. Paste the OXM roster, drag players between groups, "Apply groups" moves the raid, "Invite roster" invites everyone on it. |
+| **Invites & groups** | Invite by guild rank or whisper keyword, auto convert and assist. Roster profiles: several saved rosters by name ("New", then paste the OXM roster). Drag players between groups, "Apply groups" moves the raid, "Invite roster" invites everyone on it. |
+| **Marks** | Hold Ctrl and scroll the mouse wheel over a mob: it gets a raid icon. Give mobs their own icon lists ("Add target"): before the pull every mob gets the next free icon of its list, and a marked mob keeps its icon, so you can just scroll over the pack. |
 | **Pull log** | Every boss pull: time in combat, kill or wipe with the boss's health. |
-| **Toolbar** | Raid icons, world markers, ready check, pull and break timers, note. Settings > Toolbar. |
+| **Toolbar** | Raid icons, world markers, ready check, pull and break timers, note. Settings > Toolbar. Plus a small SRT button on the screen (drag to move, `/srt button` hides it). |
 | **Combat log** | Starts `/combatlog` by itself in raids (Settings > Combat log). |
 
 Tools marked **SOON** in the sidebar are not built yet.
