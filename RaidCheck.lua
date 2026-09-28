@@ -139,7 +139,23 @@ end
 
 local ready = {}   -- [nameKey] = true / false (ready check answer)
 local reports = {} -- [nameKey] = { dur, mh, mhLeft, t } from SRT users
+local auraReports = {} -- [nameKey] = { list = { { id, left } }, t }: SRT users' own buffs
 local scan         -- last result, see RaidCheck.Scan
+local REPORT_MAX_AGE = 300 -- a buff report older than this is not used
+
+-- Buffs of a player who is too far away to read, from their own SRT report.
+local function reportedAuras(key)
+    local r = auraReports[key]
+    if not r or GetTime() - r.t > REPORT_MAX_AGE then return nil end
+    local out = {}
+    for _, a in ipairs(r.list) do
+        local name, icon = SRT.Compat.SpellInfo(a.id)
+        if name then
+            out[#out + 1] = { name = name, spellId = a.id, icon = icon, expires = a.left > 0 and (r.t + a.left) or nil }
+        end
+    end
+    return out
+end
 
 -- Result: { at, rows = { { name, unit, classFile, group, cells = { [catId] = cell } } },
 -- totals = { [catId] = { have, total } } }. cell = { state = "yes"/"no"/"unknown"/"low",
@@ -154,9 +170,14 @@ function RaidCheck.Scan()
     for _, m in ipairs(SRT.Compat.GroupRoster()) do
         local key = SRT.Compat.NameKey(m.name)
         local auras = m.online and readAuras(m.unit) or nil
+        local remote
+        if not auras and m.online then
+            auras = reportedAuras(key)
+            remote = auras ~= nil
+        end
         local report = reports[key]
         local row = { name = m.name, unit = m.unit, classFile = select(2, UnitClass(m.unit)), group = m.group,
-            online = m.online, cells = {} }
+            online = m.online, remote = remote, cells = {} }
         for _, c in ipairs(cats) do
             local cell
             local kind = c.kind or "aura"
@@ -307,11 +328,35 @@ local function ownReport()
     return { dur = RaidCheck.OwnDurability(), mh = has, mhLeft = left, t = GetTime() }
 end
 
+-- Our own buffs as "spellId:secondsLeft,..." (0 = no end), so the leader sees them even
+-- when we are too far away for the game to tell them.
+local function ownAuraPayload()
+    local list = {}
+    local now = GetTime()
+    for _, a in ipairs(readAuras("player") or {}) do
+        if a.spellId then
+            local left = a.expires and a.expires > 0 and floor(max(0, a.expires - now)) or 0
+            list[#list + 1] = a.spellId .. ":" .. left
+        end
+    end
+    return table.concat(list, ",")
+end
+
 local function sendReport(channel, target)
     local r = ownReport()
     local payload = ("%s|%s|%s"):format(r.dur or "", r.mh == nil and "" or (r.mh and "1" or "0"), r.mhLeft or "")
     SRT.Comm.Send("RCR", payload, channel, target)
+    SRT.Comm.Send("RCA", ownAuraPayload(), channel, target)
 end
+
+SRT.Comm.Register("RCA", function(sender, payload)
+    local list = {}
+    for id, left in payload:gmatch("(%d+):(%d+)") do
+        list[#list + 1] = { id = tonumber(id), left = tonumber(left) }
+    end
+    auraReports[SRT.Compat.NameKey(sender)] = { list = list, t = GetTime() }
+    if scan then RaidCheck.Scan() end
+end)
 
 SRT.Comm.Register("RCR", function(sender, payload)
     local dur, mh, left = payload:match("^(%d*)|(%d?)|(%d*)$")
@@ -410,6 +455,7 @@ function RaidCheck.ShowCellTooltip(owner, row, cat, cell)
         if not ok and aura.spellId and GameTooltip.SetSpellByID then ok = pcall(GameTooltip.SetSpellByID, GameTooltip, aura.spellId) end
         if not ok then GameTooltip:SetText(aura.name) end
         GameTooltip:AddLine(row.name .. (cell.left and (" \194\183 " .. fmtLeft(cell.left)) or ""), 0.6, 0.64, 0.68)
+        if row.remote then GameTooltip:AddLine("Reported by SRT (out of range)", 0.49, 0.52, 0.56) end
         GameTooltip:Show()
         return
     end
@@ -423,6 +469,9 @@ function RaidCheck.ShowCellTooltip(owner, row, cat, cell)
         lines[#lines + 1] = cat.kind == "ready" and "Not ready" or "Missing"
     else
         lines[#lines + 1] = cell.text
+    end
+    if row.remote and cat.kind ~= "ready" and cat.kind ~= "weapon" and cat.kind ~= "durability" then
+        lines[#lines + 1] = "Reported by SRT (out of range)"
     end
     SRT.Widgets.ShowTooltip(owner, lines)
 end

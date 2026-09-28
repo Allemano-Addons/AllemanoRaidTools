@@ -18,7 +18,7 @@ read_globals = {
     "CreateFrame", "UIParent", "DEFAULT_CHAT_FRAME", "GameTooltip", "UISpecialFrames", "GetCursorPosition", "GetPhysicalScreenSize", "LibStub",
     "GetBuildInfo", "GetTime", "GetServerTime", "GetAddOnMetadata", "C_AddOns", "C_Timer", "Constants", "IsAddOnLoaded",
     "UnitGUID", "UnitName", "UnitFullName", "UnitClass", "GetNormalizedRealmName", "UnitIsConnected", "UnitPosition", "C_Map",
-    "UnitHealth", "UnitHealthMax", "C_Spell", "issecretvalue", "InCombatLockdown", "C_RestrictedActions", "C_Secrets",
+    "UnitHealth", "UnitHealthMax", "C_Spell", "GetSpellInfo", "issecretvalue", "InCombatLockdown", "C_RestrictedActions", "C_Secrets",
     "C_ChatInfo", "SendChatMessage", "IsInRaid", "IsInGroup", "GetNumGroupMembers", "GetNumSubgroupMembers", "GetRaidRosterInfo",
     "UnitIsGroupLeader", "UnitIsGroupAssistant", "LE_PARTY_CATEGORY_HOME", "LE_PARTY_CATEGORY_INSTANCE", "DoReadyCheck",
     "C_PartyInfo", "C_UnitAuras", "C_GuildInfo", "C_IncomingSummon", "C_SummonInfo", "IsInInstance", "GetInstanceInfo",

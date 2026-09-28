@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.1
+- Raid check sees SRT users who are too far away for the game to show their buffs: every
+  SRT user sends their own buffs (spell ID and time left) at a ready check and when the
+  leader scans; names and icons come from the spell ID, so the leader's categories decide
+  what counts. Reports older than 5 minutes are not used. The tooltip says "Reported by SRT
+  (out of range)". Far away players without SRT still show ?.
+- Ready check window: stays open while the mouse is over it; closes 8 s after everyone is
+  ready (was 3 s), adjustable under Raid check > Categories ("Close window").
+
 ## 0.7.0
 - Ready check window: a ready check opens a small SRT window (not the main window) with the
   ready check timer in the title, a ready/not ready/waiting icon and the name in class color

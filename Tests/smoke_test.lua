@@ -98,7 +98,11 @@ local SECRET = setmetatable({}, { __add = function() error("arithmetic on a secr
 issecretvalue = function(v) return v == SECRET end
 UnitHealth = function() return SECRET end
 UnitHealthMax = function() return SECRET end
-C_Spell = { GetSpellCooldown = function() return { startTime = SECRET, duration = 1.5 } end }
+C_Spell = { GetSpellCooldown = function() return { startTime = SECRET, duration = 1.5 } end,
+    GetSpellInfo = function(id)
+        local names = { [17628] = "Supreme Power", [24799] = "Well Fed", [10157] = "Arcane Intellect", [25898] = "Greater Blessing of Kings" }
+        return names[id] and { name = names[id], iconID = 1000 + id } or nil
+    end }
 -- Buffs: auraOverride[unit] = list of auras; otherwise two "Flask" buffs (the player's
 -- expiration time is secret, like in combat).
 local auraOverride = {}
@@ -1070,12 +1074,19 @@ step("ready window: timer, tooltips, live buffs, closing", function()
     assert(SRT.ReadyWindow.IsShown(), "closed too early")
     advance(11)
     assert(not SRT.ReadyWindow.IsShown(), "did not close after 15 s")
-    -- Everyone ready: closes after 3 s.
+    -- Everyone ready: closes after 8 s (setting), but not while the mouse is over it.
     fire("READY_CHECK", "Allemano Moo", 30)
     for i = 2, 4 do fire("READY_CHECK_CONFIRM", "raid" .. i, true) end
     fire("READY_CHECK_FINISHED")
-    advance(4)
-    assert(not SRT.ReadyWindow.IsShown(), "did not close 3 s after everyone was ready")
+    advance(5)
+    assert(SRT.ReadyWindow.IsShown(), "closed before 8 s")
+    local win = SRT.ReadyWindow.Frame()
+    rawset(win, "IsMouseOver", function() return true end)
+    advance(10)
+    assert(SRT.ReadyWindow.IsShown(), "closed while hovered")
+    rawset(win, "IsMouseOver", nil)
+    advance(2)
+    assert(not SRT.ReadyWindow.IsShown(), "did not close after the mouse left")
     -- Off: no window.
     SRT.db.raidcheck.popup = "off"
     fire("READY_CHECK", "Allemano Moo", 30)
@@ -1089,6 +1100,30 @@ step("ready window: timer, tooltips, live buffs, closing", function()
     auraOverride.raid2, auraOverride.raid3 = nil, nil
     GameTooltip = nil
     sent = {}
+end)
+step("raid check: buffs of far away SRT users come from their own report", function()
+    advance(30)
+    sent = {}
+    RaidCheck.Refresh() -- asks for reports (RCQ); our own report goes out when asked
+    fire("CHAT_MSG_ADDON", "SRT", "1|RCQ|9|1|1|", "RAID", "Kogosh Boll")
+    local ownPayload
+    for _, m in ipairs(sent) do
+        local p = m.text:match("^1|RCA|%d+|%d+|%d+|(.*)$")
+        if p then ownPayload = p end
+    end
+    assert(ownPayload and ownPayload:find("17628:0"), "own buffs not reported: " .. tostring(ownPayload))
+    sent = {}
+    invisible.raid3 = true
+    fire("CHAT_MSG_ADDON", "SRT", "1|RCA|4|1|1|17628:3600,10157:0,99999:10", "RAID", "Whissel Ljud")
+    local res = RaidCheck.Last()
+    assert(cellOf(res, "Whissel Ljud", "flask").text == "60m", "reported flask: " .. cellOf(res, "Whissel Ljud", "flask").text)
+    assert(cellOf(res, "Whissel Ljud", "int").state == "yes", "reported int")
+    assert(cellOf(res, "Whissel Ljud", "flask").aura.icon == 18628, "icon from the spell ID")
+    for _, r in ipairs(res.rows) do if r.name == "Whissel Ljud" then assert(r.remote, "row not marked as reported") end end
+    advance(301)
+    res = RaidCheck.Scan()
+    assert(cellOf(res, "Whissel Ljud", "flask").state == "unknown", "old report used")
+    invisible.raid3 = nil
 end)
 step("raid check: post missing, only missing, categories", function()
     auraOverride.raid3 = { { name = "Arcane Intellect", spellId = 10157, expirationTime = now + 1500 } }

@@ -310,6 +310,11 @@ Main.RegisterPage("raidcheck", function(page)
     local durSlider = W.Slider(catView, 10, 90, 5, 100, function(v) return ("below %d%% = missing"):format(v) end,
         function(v) db.minDurability = v end)
     durSlider:SetPoint("LEFT", durLabel, "RIGHT", 10, 0)
+    local closeLabel = label(catView, "Close window", -1, "textDim")
+    closeLabel:SetPoint("LEFT", resetBtn, "RIGHT", 24, 0)
+    local closeSlider = W.Slider(catView, 2, 60, 1, 100, function(v) return ("%d s after all ready (not while hovered)"):format(v) end,
+        function(v) db.closeAfter = v end)
+    closeSlider:SetPoint("LEFT", closeLabel, "RIGHT", 10, 0)
 
     function refresh()
         tabs:Set(mode)
@@ -326,6 +331,7 @@ Main.RegisterPage("raidcheck", function(page)
             refreshCategories()
             popupSeg:Set(db.popup or "all")
             durSlider:Set(db.minDurability or 50)
+            closeSlider:Set(db.closeAfter or 8)
         end
     end
 

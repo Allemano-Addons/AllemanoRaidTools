@@ -202,6 +202,23 @@ function Compat.RequestGuildRoster()
     if fn then pcall(fn) end
 end
 
+-- Name and icon of a spell ID (C_Spell on Forever; the old global GetSpellInfo is missing).
+function Compat.SpellInfo(id)
+    if C_Spell and C_Spell.GetSpellInfo then
+        local ok, info = pcall(C_Spell.GetSpellInfo, id)
+        if ok and type(info) == "table" then return info.name, info.iconID or info.originalIconID end
+    end
+    if C_Spell and C_Spell.GetSpellName then
+        local ok, name = pcall(C_Spell.GetSpellName, id)
+        local icon = C_Spell.GetSpellTexture and select(2, pcall(C_Spell.GetSpellTexture, id))
+        if ok and name then return name, icon end
+    end
+    if GetSpellInfo then
+        local name, _, icon = GetSpellInfo(id)
+        return name, icon
+    end
+end
+
 function Compat.GuildName()
     return IsInGuild() and GetGuildInfo("player") or nil
 end
