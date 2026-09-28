@@ -727,6 +727,59 @@ step("party first: 4 invites, convert, then the rest", function()
     ROSTER = savedRoster
     fire("GROUP_ROSTER_UPDATE")
 end)
+step("your own name is never ambiguous with your alt", function()
+    table.insert(GUILD, { "Allemano Mu", "Member", 3, true })
+    inRaid = false
+    local slots = Invites.MatchRoster(Invites.ParseRoster("Allemano\nAllemano Moo"))
+    inRaid = true
+    assert(slots[1].state == "self" and slots[2].state == "self", "solo: " .. slots[1].state .. "," .. slots[2].state)
+    slots = Invites.MatchRoster(Invites.ParseRoster("Allemano"))
+    assert(slots[1].state == "raid" and slots[1].member.name == "Allemano Moo", "raid: " .. slots[1].state)
+    table.remove(GUILD)
+end)
+step("drag and drop: move into a group, full group, swap, empty places", function()
+    SRT.db.roster.text = "A\nB\nC\nD\nE\nF"
+    assert(Invites.MoveToGroup(1, 2))
+    assert(SRT.db.roster.text == "-\nB\nC\nD\nE\nF\nA", "move: " .. SRT.db.roster.text)
+    SRT.db.roster.text = "A\nB\nC\nD\nE\nF\nG\nH\nI\nJ"
+    local ok, why = Invites.MoveToGroup(1, 2)
+    assert(not ok and why:find("full"), "full group accepted")
+    assert(Invites.SwapPlaces(1, 12))
+    assert(SRT.db.roster.text == "-\nB\nC\nD\nE\nF\nG\nH\nI\nJ\n\n-\nA", "swap: " .. SRT.db.roster.text)
+    local slots = Invites.ParseRoster(SRT.db.roster.text)
+    assert(slots[1].empty and slots[11].empty and slots[12].names[1] == "A" and slots[12].group == 3, "empty places")
+    -- Moving the last name away drops the trailing empty places.
+    assert(Invites.MoveToGroup(12, 1))
+    assert(SRT.db.roster.text == "A\nB\nC\nD\nE\nF\nG\nH\nI\nJ", "trim: " .. SRT.db.roster.text)
+end)
+step("drag and drop moves the players in the raid", function()
+    SRT.db.roster.text = "Kogosh\nWhissel\nNobody\n-\n-\nAllemano"
+    for i, r in ipairs(ROSTER) do r.group = i == 1 and 2 or 1 end
+    Invites.SwapPlaces(1, 6)
+    advance(2)
+    assert(ROSTER[2].group == 2 and ROSTER[1].group == 1, "Kogosh/Allemano not swapped in the raid")
+    assert(ROSTER[3].group == 1 and ROSTER[4].group == 1, "others moved")
+end)
+step("drag and drop in the page", function()
+    SRT.db.roster.text = "Kogosh\nWhissel\nNobody"
+    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    click("Invites & groups")
+    click("Groups")
+    local src, dst
+    for f, s in pairs(scripts) do
+        if s.OnDragStart and f.pos == 1 and f.filled then src = f end
+        if s.OnDragStart and f.pos == 7 and f.box and f.box._shown then dst = f end
+    end
+    assert(src and dst, "group lines not found (is group 2 shown as a drop target?)")
+    scripts[src].OnDragStart(src)
+    rawset(dst, "IsMouseOver", function() return true end)
+    rawset(dst.box, "IsMouseOver", function() return true end)
+    scripts[src].OnDragStop(src)
+    rawset(dst, "IsMouseOver", nil)
+    rawset(dst.box, "IsMouseOver", nil)
+    assert(SRT.db.roster.text == "-\nWhissel\nNobody\n-\n-\n-\nKogosh", "drop: " .. SRT.db.roster.text)
+    advance(3)
+end)
 step("auto assist when they join", function()
     wipe(promotedUnits)
     SRT.db.invite.assists = "kogosh, Whissel Ljud, Somebody"

@@ -154,6 +154,49 @@ Main.RegisterPage("invites", function(page)
     grid:SetPoint("TOPLEFT", paste, "TOPRIGHT", 16, 0)
     grid:SetPoint("BOTTOMRIGHT", -PAD, 20)
     local boxes = {}
+
+    -- Drag and drop: a name follows the cursor; dropped on a name (or an empty place) the
+    -- two swap, dropped elsewhere in a group box it moves to that group's first free place.
+    local ghost, dragFrom
+    local function getGhost()
+        if ghost then return ghost end
+        ghost = CreateFrame("Frame", nil, UIParent)
+        ghost:SetFrameStrata("TOOLTIP")
+        ghost:SetSize(140, LINE_H + 6)
+        ghost.bg = W.Fill(ghost, "selected", 0.95)
+        ghost.bg:SetAllPoints()
+        W.Border(ghost, "line")
+        ghost.text = label(ghost, "", -1, "text")
+        ghost.text:SetPoint("LEFT", 8, 0)
+        ghost:SetScript("OnUpdate", function(self)
+            local x, y = GetCursorPosition()
+            local scale = UIParent:GetEffectiveScale()
+            self:ClearAllPoints()
+            self:SetPoint("LEFT", UIParent, "BOTTOMLEFT", x / scale + 12, y / scale)
+        end)
+        return ghost
+    end
+
+    local function drop()
+        local from = dragFrom
+        dragFrom = nil
+        if ghost then ghost:Hide() end
+        if not from then return end
+        for g, b in pairs(boxes) do
+            if b:IsShown() and b:IsMouseOver() then
+                for _, line in ipairs(b.lines) do
+                    if line:IsMouseOver() then
+                        Invites.SwapPlaces(from, line.pos)
+                        return
+                    end
+                end
+                local ok, why = Invites.MoveToGroup(from, g)
+                if not ok and why then SRT:Print(why) end
+                return
+            end
+        end
+    end
+
     local function box(g)
         if boxes[g] then return boxes[g] end
         local b = CreateFrame("Frame", nil, grid)
@@ -162,12 +205,33 @@ Main.RegisterPage("invites", function(page)
         W.Border(b, "line")
         b.title = label(b, "GROUP " .. g, -2, "textDim")
         b.title:SetPoint("TOPLEFT", 10, -8)
+        b:EnableMouse(true)
         b.lines = {}
         for i = 1, 5 do
-            local fs = label(b, "", -1, "text")
-            fs:SetPoint("TOPLEFT", 10, -(26 + (i - 1) * LINE_H))
-            fs:SetPoint("RIGHT", -8, 0)
-            b.lines[i] = fs
+            local line = CreateFrame("Button", nil, b)
+            line.pos = (g - 1) * 5 + i
+            line.box = b
+            line:SetHeight(LINE_H)
+            line:SetPoint("TOPLEFT", 4, -(24 + (i - 1) * LINE_H))
+            line:SetPoint("RIGHT", -4, 0)
+            line.hl = W.Fill(line, "selected", 1)
+            line.hl:SetAllPoints()
+            line.hl:Hide()
+            line.fs = label(line, "", -1, "text")
+            line.fs:SetPoint("LEFT", 6, 0)
+            line.fs:SetPoint("RIGHT", -4, 0)
+            line:RegisterForDrag("LeftButton")
+            line:SetScript("OnEnter", function(self) if self.filled or dragFrom then self.hl:Show() end end)
+            line:SetScript("OnLeave", function(self) self.hl:Hide() end)
+            line:SetScript("OnDragStart", function(self)
+                if not self.filled then return end
+                dragFrom = self.pos
+                local gh = getGhost()
+                gh.text:SetText(self.plain)
+                gh:Show()
+            end)
+            line:SetScript("OnDragStop", function() SRT:Call("roster drop", drop) end)
+            b.lines[i] = line
         end
         boxes[g] = b
         return b
@@ -184,7 +248,8 @@ Main.RegisterPage("invites", function(page)
     summary:SetPoint("RIGHT", inviteMissing, "LEFT", -10, 0)
 
     local empty = label(grid, "Paste the roster on the left: names top to bottom, five per group\n"
-        .. "(blank lines are ignored). \"Name/Other\" means either of them.", 0, "textDim")
+        .. "(blank lines are ignored). \"Name/Other\" means either of them, \"-\" an empty place.\n"
+        .. "Then drag names between the groups; in a raid the players move too.", 0, "textDim")
     empty:SetPoint("TOPLEFT", 0, -4)
     empty:SetPoint("RIGHT")
     empty:SetJustifyV("TOP")
@@ -194,8 +259,12 @@ Main.RegisterPage("invites", function(page)
         if not paste.edit:HasFocus() then paste.edit:SetText(SRT.db.roster.text or "") end
         local slots = Invites.Roster()
         local groups = 0
-        for _, slot in ipairs(slots) do groups = max(groups, slot.group) end
+        for _, slot in ipairs(slots) do
+            if not slot.empty then groups = max(groups, slot.group) end
+        end
         empty:SetShown(groups == 0)
+        local used = groups
+        if groups > 0 and groups < 8 then groups = groups + 1 end -- an empty group to drop into
         local width = grid:GetWidth()
         local cols = 4
         local boxW = floor((width - (cols - 1) * GAP) / cols)
@@ -207,16 +276,28 @@ Main.RegisterPage("invites", function(page)
                 b:ClearAllPoints()
                 b:SetSize(boxW, boxH)
                 b:SetPoint("TOPLEFT", ((g - 1) % cols) * (boxW + GAP), -floor((g - 1) / cols) * (boxH + GAP))
-                for i = 1, 5 do b.lines[i]:SetText("") end
+                b.title:SetTextColor(Theme:Color(g > used and "textFaint" or "textDim"))
+                for i = 1, 5 do
+                    b.lines[i].fs:SetText("")
+                    b.lines[i].filled = nil
+                end
             end
         end
-        local counts = { raid = 0, right = 0, guild = 0, offline = 0, unknown = 0, ambiguous = 0 }
+        local counts = { raid = 0, right = 0, guild = 0, offline = 0, unknown = 0, ambiguous = 0, self = 0, empty = 0 }
         local listed = {}
         for i, slot in ipairs(slots) do
             local b = boxes[slot.group]
-            local fs = b.lines[(i - 1) % 5 + 1]
+            local line = b.lines[(i - 1) % 5 + 1]
+            local fs = line.fs
             local text = table.concat(slot.names, "/")
-            if slot.state == "raid" then
+            line.plain = text
+            line.filled = not slot.empty
+            if slot.state == "empty" then
+                text = ""
+            elseif slot.state == "self" then
+                fs:SetTextColor(Theme:Color("text"))
+                text = text .. "  |cff7c858f(you)|r"
+            elseif slot.state == "raid" then
                 listed[slot.member.index] = true
                 counts.raid = counts.raid + 1
                 if slot.member.group == slot.group then

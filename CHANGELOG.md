@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1
+- Groups: drag names between the group boxes. Dropped on a name (or an empty place) the two
+  swap; dropped elsewhere in a box the name goes to its first free place. The roster text is
+  updated ("-" marks an empty place), and in a raid (leader/assistant, out of combat) the
+  dragged players are moved right away. An empty extra group is shown to drop into.
+- Fix: your own name showed as "same first name twice" when an alt shares your first name.
+  You are never matched against the guild list; outside a raid you show as "(you)".
+
 ## 0.3.0
 - Invites & groups page, tab Invite:
   - Guild ranks: tick ranks, "Invite online (N)" invites their online members.
