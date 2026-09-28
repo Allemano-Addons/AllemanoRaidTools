@@ -100,6 +100,10 @@ local DEFAULT_SETTINGS = {
     noteAutoShow = true,   -- open the note window when a new raid note arrives
     notePersonal = true,   -- show the personal note under the raid note
     noteAlpha = 0.85,      -- note window background opacity (0 = see-through)
+    autoLog = true,        -- start the combat log in raid instances (CombatLog.lua)
+    logDungeons = false,   -- ... and in 5-man dungeons
+    advancedLogging = true, -- switch on advanced combat logging with it (Warcraft Logs)
+    logAnnounce = true,    -- say in chat when the log starts or stops
 }
 
 local function fillDefaults(dst, src)

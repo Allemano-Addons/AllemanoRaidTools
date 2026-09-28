@@ -20,7 +20,7 @@ Main.NAV = {
     { "Before pull", { { "raidcheck", "Raid check" }, { "buffs", "Buff assignments" }, { "invites", "Invites & groups" }, { "summons", "Summons" } } },
     { "During",      { { "marks", "Marks" }, { "timers", "Timers" }, { "cooldowns", "Cooldowns", "PROBE" }, { "bres", "Battle res", "PROBE" } } },
     { "After",       { { "pulllog", "Pull log" }, { "attendance", "Attendance" }, { "loot", "Loot" } } },
-    { "Settings",    { { "appearance", "Appearance" }, { "toolbar", "Toolbar" }, { "advanced", "Advanced" } } },
+    { "Settings",    { { "appearance", "Appearance" }, { "toolbar", "Toolbar" }, { "combatlog", "Combat log" }, { "advanced", "Advanced" } } },
 }
 
 -- What each page will do, shown until it is built.

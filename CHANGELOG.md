@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0
+- Auto logging: the combat log (/combatlog) starts when you enter a raid instance and stops
+  when you leave (only a log SRT started; one you started yourself is left alone). Advanced
+  combat logging (Warcraft Logs) is switched on with it. Options under Settings > Combat log:
+  raids, dungeons too, advanced logging, chat line. `/srt log` starts/stops it by hand.
+
 ## 0.7.1
 - Raid check sees SRT users who are too far away for the game to show their buffs: every
   SRT user sends their own buffs (spell ID and time left) at a ready check and when the

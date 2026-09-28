@@ -184,6 +184,29 @@ Main.RegisterPage("toolbar", function(page)
     end
 end)
 
+Main.RegisterPage("combatlog", function(page)
+    local p = newPage(page)
+
+    p:Heading("Auto logging")
+    p:Toggle("Log raids", "Starts the combat log (/combatlog) when you enter a raid instance, stops it when you leave.", "autoLog")
+    p:Toggle("Log dungeons too", "The same in 5-man dungeons.", "logDungeons")
+    p:Toggle("Advanced combat logging", "Switched on with the log; Warcraft Logs needs it.", "advancedLogging")
+    p:Toggle("Say it in chat", "A line in your chat when the log starts or stops.", "logAnnounce")
+
+    p:Heading("Now")
+    local state = W.Button(page, "Start", nil, function() SRT.CombatLog.Toggle() end, 26)
+    p:Row("Combat log", "The file is written to World of Warcraft\\_classic_beta_\\Logs.", state)
+    local refreshState = function()
+        local on = SRT.CombatLog.IsLogging()
+        state:SetLabel(on and "Stop" or "Start")
+        state.tooltip = on and "The combat log is running." or "The combat log is off."
+    end
+    state.refresh = refreshState
+    p.controls[#p.controls + 1] = state
+
+    return function() p:Refresh() end
+end)
+
 Main.RegisterPage("advanced", function(page)
     local p = newPage(page)
 

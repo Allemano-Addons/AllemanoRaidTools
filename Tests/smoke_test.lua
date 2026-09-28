@@ -88,8 +88,12 @@ RAID_CLASS_COLORS = { DRUID = { r = 1, g = 0.49, b = 0.04 }, MAGE = { r = 0.25, 
 LOCALIZED_CLASS_NAMES_MALE = { DRUID = "Druid", MAGE = "Mage" }
 IsInGuild = function() return true end
 GetGuildInfo = function() return "Slakthuset" end
-IsInInstance = function() return false, "none" end
-GetInstanceInfo = function() return "Kalimdor", "none", 0 end
+local instance = { false, "none", "Kalimdor" }
+IsInInstance = function() return instance[1], instance[2] end
+GetInstanceInfo = function() return instance[3], instance[2], 0 end
+local logging, cvars = false, {}
+LoggingCombat = function(on) if on ~= nil then logging = on end return logging end
+C_CVar = { SetCVar = function(k, v) cvars[k] = v end }
 InCombatLockdown = function() return false end
 -- Secret values: any use but passing them around fails, like in the game.
 local SECRET = setmetatable({}, { __add = function() error("arithmetic on a secret value") end,
@@ -220,6 +224,7 @@ C_ChatInfo = {
     end,
     SendChatMessage = function(msg, channel) chatLines[#chatLines + 1] = { msg = msg, channel = channel } end,
     AreOutgoingAddonChatMessagesRestricted = function() return false end,
+    IsLoggingCombat = function() return logging end,
 }
 
 -- Load the TOC files in order with the shared addon table.
@@ -1155,6 +1160,48 @@ step("raid check: post missing, only missing, categories", function()
     click("Check")
     auraOverride.raid1, auraOverride.raid2, auraOverride.raid3, invisible.raid4 = nil, nil, nil, nil
     click("Home")
+end)
+-- ---------------------------------------------------------------------------
+-- Auto logging
+-- ---------------------------------------------------------------------------
+
+local function zoneIn(isInst, kind, name)
+    instance[1], instance[2], instance[3] = isInst, kind, name
+    fire("ZONE_CHANGED_NEW_AREA")
+    advance(3)
+end
+step("auto log: raid starts it, leaving stops it", function()
+    logging = false
+    zoneIn(true, "raid", "Onyxia's Lair")
+    assert(logging, "log not started in a raid")
+    assert(cvars.advancedCombatLogging == "1", "advanced logging not switched on")
+    assert(chatHas("Combat log started %(Onyxia's Lair%)"), "no chat line")
+    zoneIn(false, "none", "Dustwallow Marsh")
+    assert(not logging, "log not stopped after leaving")
+end)
+step("auto log: dungeons only when chosen; a manual log is left alone", function()
+    zoneIn(true, "party", "Ragefire Chasm")
+    assert(not logging, "logged a dungeon without the setting")
+    SRT.db.settings.logDungeons = true
+    zoneIn(true, "party", "Ragefire Chasm")
+    assert(logging, "dungeon not logged with the setting")
+    SRT.db.settings.logDungeons = false
+    zoneIn(false, "none", "Orgrimmar")
+    -- Started by hand outside: SRT does not stop it.
+    SlashCmdList.SLAUGHTERRAIDTOOLS("log")
+    assert(logging, "/srt log did not start it")
+    zoneIn(true, "raid", "Onyxia's Lair")
+    zoneIn(false, "none", "Orgrimmar")
+    assert(logging, "SRT stopped a log it did not start")
+    SlashCmdList.SLAUGHTERRAIDTOOLS("log")
+    assert(not logging, "/srt log did not stop it")
+    SRT.db.settings.autoLog = false
+    zoneIn(true, "raid", "Onyxia's Lair")
+    assert(not logging, "logged with auto logging off")
+    SRT.db.settings.autoLog = true
+    zoneIn(false, "none", "Kalimdor")
+    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    click("Combat log")
 end)
 step("close window", function()
     SlashCmdList.SLAUGHTERRAIDTOOLS("")
