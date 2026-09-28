@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.1
+- Visual note: Move tool: drag a stroke, line, arrow, icon or text to a new place (it stays on
+  the canvas).
+- Smoother drawing: the pen keeps a point every 2-3 px (was 5), the simplification keeps more
+  detail, curves are rounded when drawn (on every client, nothing more is sent) and thick
+  strokes get round joints. Drawings are about 1.5x bigger in kB, still far below the limit.
+
 ## 0.10.0
 - Visual note (Plan > Visual note): draw with a pen, lines, arrows, raid icons and text in 8
   colors and 3 widths; erase, undo, clear. Background: none, the current map (the game's own

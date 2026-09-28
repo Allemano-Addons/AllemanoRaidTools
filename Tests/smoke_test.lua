@@ -515,7 +515,7 @@ step("combat probe", function()
 end)
 step("resize grip saves the size, reset clears it", function()
     local grip
-    for f, s in pairs(scripts) do if s.OnMouseDown and f.dots then grip = f end end
+    for f, s in pairs(scripts) do if s.OnMouseDown and f.dots and not f.lines then grip = f end end
     assert(grip, "no resize grip")
     scripts[grip].OnMouseDown(grip, "LeftButton")
     scripts[grip].OnMouseUp(grip, "LeftButton")
@@ -1321,6 +1321,19 @@ step("visual note: drawing on the page", function()
     edit:SetText("Tanks")
     scripts[edit].OnEnterPressed(edit)
     assert(#items == 4 and items[4].s == "Tanks", "no text")
+    -- Move the text 50 px right: drag with Move.
+    click("Move")
+    local tx = items[4].x
+    at(350, 450)
+    scripts[canvas].OnMouseDown(canvas, "LeftButton")
+    at(400, 450)
+    scripts[canvas].OnUpdate(canvas)
+    scripts[canvas].OnMouseUp(canvas, "LeftButton")
+    assert(math.abs(items[4].x - (tx + 50 / 800 * 4095)) < 1, "text not moved: " .. items[4].x)
+    -- Moving never pushes an item off the canvas.
+    local stroke = { k = "p", pts = { 100, 100, 4000, 200 } }
+    VN.MoveItem(stroke, 500, -300)
+    assert(stroke.pts[3] == 4095 and stroke.pts[2] == 0, "stroke left the canvas")
     -- Erase the icon.
     click("Erase")
     at(300, 400)

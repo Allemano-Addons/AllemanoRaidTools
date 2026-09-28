@@ -6,11 +6,12 @@ local Theme, W = SRT.Theme, SRT.Widgets
 local Main, VN = SRT.Main, SRT.VisualNote
 
 local PAD = 26
-local MIN_STEP = 25 -- note units between two pen points while drawing
+local MIN_STEP = 12 -- note units between two pen points while drawing (about 2-3 px)
 
 local TOOLS = {
     { value = "p", label = "Pen" }, { value = "l", label = "Line" }, { value = "a", label = "Arrow" },
-    { value = "i", label = "Icon" }, { value = "t", label = "Text" }, { value = "e", label = "Erase" },
+    { value = "i", label = "Icon" }, { value = "t", label = "Text" }, { value = "m", label = "Move" },
+    { value = "e", label = "Erase" },
 }
 
 -- Cursor position in note coordinates (0..4095), nil when outside the canvas.
@@ -177,11 +178,17 @@ Main.RegisterPage("visualnote", function(page)
     end)
 
     local drawing -- the stroke / line being drawn
+    local moving  -- { item, x, y } while dragging an item with Move
     local function finishStroke()
         local d = drawing
         drawing = nil
         canvas:SetScript("OnUpdate", nil)
         preview:Hide()
+        if moving then
+            moving = nil
+            VN.Changed()
+            return
+        end
         if not d then return end
         if d.k == "p" then
             d.pts = VN.Simplify(d.pts)
@@ -211,6 +218,22 @@ Main.RegisterPage("visualnote", function(page)
                 tremove(draft().items, i)
                 VN.Changed()
             end
+        elseif tool == "m" then
+            local i = VN.HitTest(draft(), x, y)
+            if not i then return end
+            moving = { item = draft().items[i], x = x, y = y, drawn = 0 }
+            self:SetScript("OnUpdate", function(c)
+                local nx, ny = cursorIn(c)
+                if not nx or not moving then return end
+                VN.MoveItem(moving.item, nx - moving.x, ny - moving.y)
+                moving.x, moving.y = nx, ny
+                -- Redraw at most ~30 times a second while dragging.
+                local now = GetTime()
+                if now - moving.drawn > 0.033 then
+                    moving.drawn = now
+                    VN.Render(c, draft())
+                end
+            end)
         elseif tool == "p" then
             drawing = { k = "p", c = color, w = width, pts = { x, y } }
             self:SetScript("OnUpdate", function(c)
@@ -244,7 +267,7 @@ Main.RegisterPage("visualnote", function(page)
 
     local HELP = { p = "Hold the left button and draw.", l = "Drag to draw a line.", a = "Drag to draw an arrow.",
         i = "Pick an icon on the right, then click to place it.", t = "Click where the text goes, type, Enter.",
-        e = "Click a stroke, icon or text to remove it." }
+        m = "Drag a stroke, arrow, icon or text to move it.", e = "Click a stroke, icon or text to remove it." }
 
     function refresh()
         local d = draft()

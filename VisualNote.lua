@@ -136,7 +136,7 @@ function VisualNote.Simplify(pts, eps)
     local n = floor(#pts / 2)
     if n <= 2 then return pts end
     local keep = { [1] = true, [n] = true }
-    simplifyRange(pts, 1, n, eps or 12, keep)
+    simplifyRange(pts, 1, n, eps or 6, keep)
     local out = {}
     for i = 1, n do
         if keep[i] then
@@ -270,8 +270,8 @@ function VisualNote.CreateCanvas(parent)
     c.image:Hide()
     c.missing = SRT.Widgets.Text(c, -1, "textFaint")
     c.missing:SetPoint("BOTTOM", 0, 8)
-    c.tiles, c.lines, c.icons, c.texts = {}, {}, {}, {}
-    c.used = { lines = 0, icons = 0, texts = 0 }
+    c.tiles, c.lines, c.icons, c.texts, c.dots = {}, {}, {}, {}, {}
+    c.used = { lines = 0, icons = 0, texts = 0, dots = 0 }
     return c
 end
 
@@ -347,12 +347,50 @@ local function segment(c, x1, y1, x2, y2, r, g, b, thick, sx, sy)
     l:SetEndPoint("TOPLEFT", c, x2 * sx, -y2 * sy)
 end
 
+-- A round joint (hides the notches where two thick pieces meet).
+local ROUND = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask"
+local function joint(c, x, y, r, g, b, thick, sx, sy)
+    if c.used.dots >= VisualNote.MAX_SEGMENTS then return end
+    c.used.dots = c.used.dots + 1
+    local t = c.dots[c.used.dots]
+    if not t then
+        t = c:CreateTexture(nil, "ARTWORK")
+        t:SetTexture(ROUND)
+        c.dots[c.used.dots] = t
+    end
+    t:SetVertexColor(r, g, b, 1)
+    t:SetSize(thick, thick)
+    t:ClearAllPoints()
+    t:SetPoint("CENTER", c, "TOPLEFT", x * sx, -y * sy)
+    t:Show()
+end
+
+-- Rounds a stroke's corners for drawing (Chaikin): nothing more is sent, every client
+-- smooths the same points itself.
+local function smooth(p)
+    local n = #p / 2
+    if n < 3 then return p end
+    local out = { p[1], p[2] }
+    for i = 1, n - 1 do
+        local ax, ay, bx, by = p[i * 2 - 1], p[i * 2], p[i * 2 + 1], p[i * 2 + 2]
+        out[#out + 1] = ax * 0.75 + bx * 0.25
+        out[#out + 1] = ay * 0.75 + by * 0.25
+        out[#out + 1] = ax * 0.25 + bx * 0.75
+        out[#out + 1] = ay * 0.25 + by * 0.75
+    end
+    out[#out + 1] = p[#p - 1]
+    out[#out + 1] = p[#p]
+    return out
+end
+VisualNote.Smooth = smooth
+
 -- Draws the note; returns the number of line segments used.
 function VisualNote.Render(c, note)
     for _, l in ipairs(c.lines) do l:Hide() end
     for _, t in ipairs(c.icons) do t:Hide() end
     for _, fs in ipairs(c.texts) do fs:Hide() end
-    c.used.lines, c.used.icons, c.used.texts = 0, 0, 0
+    for _, t in ipairs(c.dots) do t:Hide() end
+    c.used.lines, c.used.icons, c.used.texts, c.used.dots = 0, 0, 0, 0
     local w, h = c:GetWidth(), c:GetHeight()
     if not note or w <= 0 or h <= 0 then return 0 end
     local sx, sy = w / VisualNote.MAX, h / VisualNote.MAX
@@ -378,11 +416,14 @@ function VisualNote.Render(c, note)
         local r, g, b = hexColor(it.c)
         local thick = (VisualNote.WIDTHS[it.w or 1] or 2) * scale
         if it.k == "p" then
-            local p = it.pts
+            local p = smooth(it.pts)
+            local round = thick >= 3
             for i = 1, #p / 2 - 1 do
                 segment(c, p[i * 2 - 1], p[i * 2], p[i * 2 + 1], p[i * 2 + 2], r, g, b, thick, sx, sy)
+                if round then joint(c, p[i * 2 - 1], p[i * 2], r, g, b, thick, sx, sy) end
             end
-            if #p == 2 then segment(c, p[1], p[2], p[1] + 8, p[2] + 8, r, g, b, thick, sx, sy) end
+            if round then joint(c, p[#p - 1], p[#p], r, g, b, thick, sx, sy) end
+            if #p == 2 then joint(c, p[1], p[2], r, g, b, max(thick, 3), sx, sy) end
         elseif it.k == "l" or it.k == "a" then
             segment(c, it.x1, it.y1, it.x2, it.y2, r, g, b, thick, sx, sy)
             if it.k == "a" then
@@ -425,6 +466,37 @@ function VisualNote.DrawSegment(c, it, x1, y1, x2, y2)
     if w <= 0 or h <= 0 then return end
     local r, g, b = hexColor(it.c)
     segment(c, x1, y1, x2, y2, r, g, b, (VisualNote.WIDTHS[it.w or 1] or 2) * w / 800, w / VisualNote.MAX, h / VisualNote.MAX)
+end
+
+-- Moves an item by (dx, dy), keeping it on the canvas.
+function VisualNote.MoveItem(it, dx, dy)
+    local M = VisualNote.MAX
+    -- Shrink the move so no point leaves the canvas.
+    local function limit(values, d)
+        for _, v in ipairs(values) do
+            if v + d < 0 then d = -v end
+            if v + d > M then d = M - v end
+        end
+        return d
+    end
+    local xs, ys = {}, {}
+    if it.k == "p" then
+        for i = 1, #it.pts, 2 do xs[#xs + 1], ys[#ys + 1] = it.pts[i], it.pts[i + 1] end
+    elseif it.k == "l" or it.k == "a" then
+        xs, ys = { it.x1, it.x2 }, { it.y1, it.y2 }
+    else
+        xs, ys = { it.x }, { it.y }
+    end
+    dx, dy = limit(xs, dx), limit(ys, dy)
+    if it.k == "p" then
+        for i = 1, #it.pts, 2 do
+            it.pts[i], it.pts[i + 1] = it.pts[i] + dx, it.pts[i + 1] + dy
+        end
+    elseif it.k == "l" or it.k == "a" then
+        it.x1, it.y1, it.x2, it.y2 = it.x1 + dx, it.y1 + dy, it.x2 + dx, it.y2 + dy
+    else
+        it.x, it.y = it.x + dx, it.y + dy
+    end
 end
 
 -- The item under canvas point (x, y) in note coordinates (for the eraser), or nil.
