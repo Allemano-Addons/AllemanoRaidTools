@@ -1323,8 +1323,21 @@ step("visual note: strokes are simplified and capped", function()
     -- Rendering is capped too.
     local c = VN.CreateCanvas(UIParent)
     local huge = { bg = { kind = "none" }, items = { { k = "p", c = 1, w = 1, pts = {} } } }
-    for i = 1, 4000 do huge.items[1].pts[i] = (i * 7) % 4096 end
+    for i = 1, 12000 do huge.items[1].pts[i] = (i * 7) % 4096 end
+    assert(VN.MAX_SEGMENTS == 4000, "cap")
     assert(VN.Render(c, huge) == VN.MAX_SEGMENTS, "segments not capped")
+    -- Smoothing only where points are far apart.
+    local dense, sparse = {}, {}
+    for i = 0, 20 do
+        dense[#dense + 1] = i * 20; dense[#dense + 1] = (i % 2) * 20
+        sparse[#sparse + 1] = i * 150; sparse[#sparse + 1] = (i % 2) * 150
+    end
+    assert(#VN.Smooth(dense) == #dense, "a dense stroke should not be smoothed")
+    assert(#VN.Smooth(sparse) > #sparse, "a sparse stroke should be smoothed")
+    -- Leaving one item out (the one being moved).
+    local two = { bg = { kind = "none" }, items = { { k = "l", c = 1, w = 1, x1 = 0, y1 = 0, x2 = 100, y2 = 100 },
+        { k = "l", c = 1, w = 1, x1 = 0, y1 = 0, x2 = 200, y2 = 200 } } }
+    assert(VN.Render(c, two) == 2 and VN.Render(c, two, 1) == 1, "skip")
 end)
 step("visual note: drawing on the page", function()
     SlashCmdList.SLAUGHTERRAIDTOOLS("")

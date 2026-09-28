@@ -16,7 +16,7 @@ local VisualNote = {}
 SRT.VisualNote = VisualNote
 
 VisualNote.MAX = 4095
-VisualNote.MAX_SEGMENTS = 1500   -- drawn per canvas at most
+VisualNote.MAX_SEGMENTS = 4000   -- line pieces drawn per canvas at most
 VisualNote.MAX_POINTS = 200      -- per stroke
 VisualNote.MAX_BYTES = 12000     -- a shared note at most
 VisualNote.COLORS = { "E6E8EB", "E0564F", "E8A33D", "F2D64B", "3FC77F", "3FC7EB", "B57EDC", "111418" }
@@ -366,10 +366,18 @@ local function joint(c, x, y, r, g, b, thick, sx, sy)
 end
 
 -- Rounds a stroke's corners for drawing (Chaikin): nothing more is sent, every client
--- smooths the same points itself.
+-- smooths the same points itself. Only strokes with far-apart points need it: a densely
+-- drawn stroke already looks round, and smoothing would double its pieces for nothing.
+local SMOOTH_SPACING = 60 -- note units (about 12 px on an 800 px canvas)
 local function smooth(p)
     local n = #p / 2
     if n < 3 then return p end
+    local total = 0
+    for i = 1, n - 1 do
+        local dx, dy = p[i * 2 + 1] - p[i * 2 - 1], p[i * 2 + 2] - p[i * 2]
+        total = total + math.sqrt(dx * dx + dy * dy)
+    end
+    if total / (n - 1) < SMOOTH_SPACING then return p end
     local out = { p[1], p[2] }
     for i = 1, n - 1 do
         local ax, ay, bx, by = p[i * 2 - 1], p[i * 2], p[i * 2 + 1], p[i * 2 + 2]
@@ -384,8 +392,9 @@ local function smooth(p)
 end
 VisualNote.Smooth = smooth
 
--- Draws the note; returns the number of line segments used.
-function VisualNote.Render(c, note)
+-- Draws the note; returns the number of line segments used. skip = an item index to leave
+-- out (the item being moved is drawn on its own layer meanwhile).
+function VisualNote.Render(c, note, skip)
     for _, l in ipairs(c.lines) do l:Hide() end
     for _, t in ipairs(c.icons) do t:Hide() end
     for _, fs in ipairs(c.texts) do fs:Hide() end
@@ -412,10 +421,12 @@ function VisualNote.Render(c, note)
         end
     end
 
-    for _, it in ipairs(note.items) do
+    for index, it in ipairs(note.items) do
         local r, g, b = hexColor(it.c)
         local thick = (VisualNote.WIDTHS[it.w or 1] or 2) * scale
-        if it.k == "p" then
+        if index == skip then -- luacheck: ignore 542
+            -- drawn elsewhere
+        elseif it.k == "p" then
             local p = smooth(it.pts)
             local round = thick >= 3
             for i = 1, #p / 2 - 1 do

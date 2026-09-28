@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1
+- Visual note holds much bigger drawings: up to 4000 line pieces drawn (was 1500); curves are
+  only rounded where the points are far apart (densely drawn strokes no longer double their
+  pieces); Move redraws only the item being dragged, so big drawings stay smooth.
+
 ## 0.11.0
 - Roster profiles (like MRT), Invites & groups > Groups: several saved rosters by name. Pick one
   in the menu to load it; "New" makes an empty roster with the typed name (then paste the OXM

@@ -165,6 +165,12 @@ Main.RegisterPage("visualnote", function(page)
     help:SetPoint("BOTTOMRIGHT", -PAD, 14)
 
     -- Preview for lines and arrows while dragging.
+    -- The layer the item being moved is drawn on (transparent, over the canvas).
+    local layer = VN.CreateCanvas(canvas)
+    layer:SetAllPoints(canvas)
+    layer.bg:Hide()
+    layer:Hide()
+
     local preview = canvas:CreateLine(nil, "OVERLAY")
     preview:Hide()
 
@@ -198,6 +204,8 @@ Main.RegisterPage("visualnote", function(page)
         preview:Hide()
         if moving then
             moving = nil
+            VN.Render(layer, nil)
+            layer:Hide()
             VN.Changed()
             return
         end
@@ -233,7 +241,13 @@ Main.RegisterPage("visualnote", function(page)
         elseif tool == "m" then
             local i = VN.HitTest(draft(), x, y)
             if not i then return end
+            -- Everything else is drawn once without the item; only the item is redrawn,
+            -- on its own layer, while it is dragged (big drawings stay smooth).
             moving = { item = draft().items[i], x = x, y = y, drawn = 0 }
+            moving.alone = { bg = { kind = "none" }, items = { moving.item } }
+            VN.Render(self, draft(), i)
+            layer:Show()
+            VN.Render(layer, moving.alone)
             self:SetScript("OnUpdate", function(c)
                 local nx, ny = cursorIn(c)
                 if not nx or not moving then return end
@@ -243,7 +257,7 @@ Main.RegisterPage("visualnote", function(page)
                 local now = GetTime()
                 if now - moving.drawn > 0.033 then
                     moving.drawn = now
-                    VN.Render(c, draft())
+                    VN.Render(layer, moving.alone)
                 end
             end)
         elseif tool == "p" then
