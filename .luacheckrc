@@ -23,5 +23,5 @@ read_globals = {
     "C_ChatInfo", "SendChatMessage", "IsInRaid", "IsInGroup", "GetNumGroupMembers", "GetNumSubgroupMembers", "GetRaidRosterInfo",
     "UnitIsGroupLeader", "UnitIsGroupAssistant", "LE_PARTY_CATEGORY_HOME", "LE_PARTY_CATEGORY_INSTANCE", "DoReadyCheck",
     "C_PartyInfo", "C_UnitAuras", "C_GuildInfo", "C_IncomingSummon", "C_SummonInfo", "IsInInstance", "GetInstanceInfo",
-    "IsInGuild", "GetGuildInfo", "UnitExists", "UnitIsVisible", "ClearOverrideBindings", "SetOverrideBindingClick", "GetInventoryItemDurability", "GetWeaponEnchantInfo", "GetRaidTargetIndex", "IsShiftKeyDown", "GetNumGuildMembers", "GetGuildRosterInfo", "GuildRoster", "SetRaidSubgroup", "SwapRaidSubgroup", "PromoteToAssistant", "ConvertToRaid", "InviteUnit", "CUSTOM_CLASS_COLORS", "RAID_CLASS_COLORS", "LOCALIZED_CLASS_NAMES_MALE",
+    "IsInGuild", "GetGuildInfo", "UnitExists", "UnitIsVisible", "UnitIsPlayer", "GetRealZoneText", "ClearOverrideBindings", "SetOverrideBindingClick", "GetInventoryItemDurability", "GetWeaponEnchantInfo", "GetRaidTargetIndex", "IsShiftKeyDown", "GetNumGuildMembers", "GetGuildRosterInfo", "GuildRoster", "SetRaidSubgroup", "SwapRaidSubgroup", "PromoteToAssistant", "ConvertToRaid", "InviteUnit", "CUSTOM_CLASS_COLORS", "RAID_CLASS_COLORS", "LOCALIZED_CLASS_NAMES_MALE",
 }

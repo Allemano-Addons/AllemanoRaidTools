@@ -168,6 +168,8 @@ local function initDB()
     if not db.marks.order then db.marks.order = CopyTable(SRT.Marks.DEFAULT_ORDER) end
     db.marks.off = db.marks.off or {}
     if db.marks.wheel == nil then db.marks.wheel = true end
+    db.marks.mobs = db.marks.mobs or {}   -- [zone][mob name] = { icon, ... }
+    if db.marks.lock == nil then db.marks.lock = true end
     db.toolbar = db.toolbar or {}  -- the small bar outside the main window (UI/Toolbar.lua)
     fillDefaults(db.toolbar, { shown = true, onlyInGroup = false, locked = false, vertical = false, rows = 1, scale = 1,
         items = { open = true, marks = true, world = true, readycheck = true, pull = true, breaktimer = true, note = true } })

@@ -31,13 +31,128 @@ function Marks.Order()
 end
 
 -- Runs in the game's restricted (secure) environment on every press, before the macro.
+-- srt-fixed: 0 = next icon of the general order, N = icon N (a mob list picked it while
+-- out of combat), -1 = nothing (the unit already has an icon and marks are locked).
 local PRE_CLICK = [[
+    local fixed = self:GetAttribute("srt-fixed") or 0
+    if fixed < 0 then return false end
+    if fixed > 0 then
+        self:SetAttribute("macrotext", "/tm [@mouseover,exists] " .. fixed)
+        return
+    end
     local n = self:GetAttribute("srt-count") or 0
     if n == 0 then return false end
     local i = (self:GetAttribute("srt-index") or 0) % n + 1
     self:SetAttribute("srt-index", i)
     self:SetAttribute("macrotext", "/tm [@mouseover,exists] " .. self:GetAttribute("srt-icon" .. i))
 ]]
+Marks.PRE_CLICK = PRE_CLICK
+
+-- ---------------------------------------------------------------------------
+-- Mob lists: db.marks.mobs[zone][mob name] = { icon, ... }. While out of combat, pointing
+-- at a mob that has a list picks its next free icon (an icon is used once per pack); with
+-- "lock", a mob that already has an icon keeps it. Everything starts over after a fight.
+-- ---------------------------------------------------------------------------
+
+local usedIcons = {} -- icons given out since the last start over
+
+local function safe(v)
+    if issecretvalue and issecretvalue(v) then return nil end
+    return v
+end
+
+-- The zone lists are kept under: the instance's name inside one, else the zone.
+function Marks.ZoneKey()
+    local inInstance = IsInInstance()
+    local name = inInstance and GetInstanceInfo() or GetRealZoneText()
+    return name ~= "" and name or "Unknown"
+end
+
+-- The list for a mob name: this zone's first, else any zone's.
+function Marks.ListFor(name)
+    if not name then return nil end
+    local mobs = db().mobs
+    local here = mobs[Marks.ZoneKey()]
+    if here and here[name] then return here[name] end
+    for _, zone in pairs(mobs) do
+        if zone[name] then return zone[name] end
+    end
+end
+
+-- The next icon of a list nobody has got yet, nil when all are used.
+function Marks.NextFree(list)
+    for _, icon in ipairs(list) do
+        if not usedIcons[icon] then return icon end
+    end
+end
+
+local function setFixed(value)
+    if button and not InCombatLockdown() then button:SetAttribute("srt-fixed", value) end
+end
+
+-- Out of combat: prepares the next press for the unit under the mouse.
+function Marks.Prepare()
+    if not button or InCombatLockdown() or not db().wheel then return end
+    if not UnitExists("mouseover") then setFixed(0) return end
+    local current = safe(GetRaidTargetIndex("mouseover"))
+    if current and db().lock then setFixed(-1) return end
+    local list = not UnitIsPlayer("mouseover") and Marks.ListFor(safe(UnitName("mouseover")))
+    if list then
+        setFixed(Marks.NextFree(list) or -1)
+    else
+        setFixed(0)
+    end
+end
+
+-- After a press: remember the icon that was given, and lock the unit (it has one now).
+local function afterPress()
+    if InCombatLockdown() then return end
+    local fixed = button:GetAttribute("srt-fixed") or 0
+    local icon = fixed > 0 and fixed or tonumber((button:GetAttribute("macrotext") or ""):match("(%d)$"))
+    if icon then usedIcons[icon] = true end
+    if db().lock then setFixed(-1) else Marks.Prepare() end
+end
+
+function Marks.AddMob(name, zone)
+    name = strtrim(name or "")
+    if name == "" then return false end
+    zone = zone or Marks.ZoneKey()
+    local mobs = db().mobs
+    mobs[zone] = mobs[zone] or {}
+    mobs[zone][name] = mobs[zone][name] or { 8 }
+    if SRT.Main then SRT.Main.Refresh() end
+    return true
+end
+
+-- Adds the target (a mob) to this zone's lists.
+function Marks.AddTarget()
+    if not UnitExists("target") or UnitIsPlayer("target") then
+        SRT:Print("Target the mob first.")
+        return false
+    end
+    return Marks.AddMob(safe(UnitName("target")))
+end
+
+function Marks.RemoveMob(zone, name)
+    local mobs = db().mobs
+    if mobs[zone] then
+        mobs[zone][name] = nil
+        if not next(mobs[zone]) then mobs[zone] = nil end
+    end
+    if SRT.Main then SRT.Main.Refresh() end
+end
+
+-- Sets slot `slot` of a mob's list to an icon (nil removes it; the list closes up).
+function Marks.SetSlot(zone, name, slot, icon)
+    local list = db().mobs[zone] and db().mobs[zone][name]
+    if not list then return end
+    if icon then
+        list[min(slot, #list + 1)] = icon
+    else
+        tremove(list, slot)
+    end
+    if SRT.Main then SRT.Main.Refresh() end
+end
 
 -- Builds the button (named: key bindings click it by name).
 local function build()
@@ -47,8 +162,10 @@ local function build()
     button:SetAttribute("type", "macro")
     button:SetAttribute("macrotext", "")
     button:RegisterForClicks("AnyUp", "AnyDown")
+    button:SetAttribute("srt-fixed", 0)
     header = CreateFrame("Frame", nil, UIParent, "SecureHandlerBaseTemplate")
     header:WrapScript(button, "OnClick", PRE_CLICK)
+    button:SetScript("PostClick", function() SRT:Call("mark", afterPress) end)
 end
 
 -- Writes the icon list into the button and sets the Ctrl + wheel keys. Protected in
@@ -69,10 +186,12 @@ function Marks.Apply()
     if SRT.Main then SRT.Main.Refresh() end
 end
 
--- The next press starts with the first icon again.
+-- The next press starts with the first icon again (and every mob list from its start).
 function Marks.StartOver()
     if InCombatLockdown() then SRT:Print("Not in combat.") return end
+    wipe(usedIcons)
     if button then button:SetAttribute("srt-index", 0) end
+    Marks.Prepare()
 end
 
 function Marks.Toggle(icon)
@@ -95,4 +214,13 @@ function Marks.Reset()
 end
 
 SRT:OnReady(Marks.Apply)
-SRT:RegisterEvent("PLAYER_REGEN_ENABLED", function() if pending then Marks.Apply() end end)
+-- After a fight the next pack starts from the top of every list.
+SRT:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+    if pending then Marks.Apply() end
+    Marks.StartOver()
+end)
+-- Just before combat locks the button: use the general order in the fight.
+SRT:RegisterEvent("PLAYER_REGEN_DISABLED", function() if button then button:SetAttribute("srt-fixed", 0) end end)
+SRT:RegisterEvent("UPDATE_MOUSEOVER_UNIT", function() Marks.Prepare() end)
+SRT:RegisterEvent("RAID_TARGET_UPDATE", function() Marks.Prepare() end)
+SRT:RegisterEvent("ZONE_CHANGED_NEW_AREA", function() if not InCombatLockdown() then wipe(usedIcons) end end)

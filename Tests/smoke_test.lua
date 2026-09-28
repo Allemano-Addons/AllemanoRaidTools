@@ -210,8 +210,25 @@ SwapRaidSubgroup = function(a, b)
 end
 UnitIsConnected = function() return true end
 local targetIcon, hasTarget, shiftDown = 0, true, false
-UnitExists = function(u) return u ~= "target" or hasTarget end
-GetRaidTargetIndex = function() return targetIcon ~= 0 and targetIcon or nil end
+-- The unit under the mouse: { name, icon, player } or nil.
+local mouseover
+UnitExists = function(u)
+    if u == "mouseover" then return mouseover ~= nil end
+    return u ~= "target" or hasTarget
+end
+GetRaidTargetIndex = function(u)
+    if u == "mouseover" then return mouseover and mouseover.icon end
+    return targetIcon ~= 0 and targetIcon or nil
+end
+UnitIsPlayer = function(u) return u == "mouseover" and mouseover and mouseover.player or false end
+GetRealZoneText = function() return instance[3] end
+local targetName = "Phoenix-Hawk"
+local baseUnitName = UnitName
+UnitName = function(u)
+    if u == "mouseover" then return mouseover and mouseover.name end
+    if u == "target" then return targetName end
+    return baseUnitName(u)
+end
 SetRaidTarget = function() error("forbidden: SetRaidTarget is protected on Forever") end
 IsShiftKeyDown = function() return shiftDown end
 local leaderUnit = "player"
@@ -1546,6 +1563,69 @@ step("mouseover marking: secure button, Ctrl + wheel, icon order", function()
     SlashCmdList.SLAUGHTERRAIDTOOLS("")
     click("Marks")
     click("Start over")
+end)
+step("mob lists: each mob gets the next free icon of its list, locked, reset after a fight", function()
+    local M = SRT.Marks
+    local btn = _G.SlaughterRaidToolsMarkButton
+    local wrapper
+    for _, f in ipairs(allFrames) do if f._wrapped and f._wrapped.target == btn then wrapper = f._wrapped end end
+    local press = assert(load("local self = ...\n" .. wrapper.pre))
+    -- One press like the game does it: the secure snippet, the macro (sets the icon on
+    -- the mouseover in our fake world), then PostClick.
+    local function scrollOver(mob)
+        mouseover = mob
+        fire("UPDATE_MOUSEOVER_UNIT")
+        if press(btn) ~= false then
+            local icon = tonumber(btn._attr.macrotext:match("(%d)$"))
+            mob.icon = icon
+        end
+        scripts[btn].PostClick(btn)
+        return mob.icon
+    end
+    instance[1], instance[2], instance[3] = true, "raid", "Tempest Keep"
+    targetName = "Phoenix-Hawk"
+    assert(M.AddTarget(), "add target")
+    M.SetSlot("Tempest Keep", "Phoenix-Hawk", 2, 7)
+    M.SetSlot("Tempest Keep", "Phoenix-Hawk", 3, 6)
+    M.SetSlot("Tempest Keep", "Phoenix-Hawk", 4, 5)
+    M.AddMob("Bloodwarder Marshal")
+    M.SetSlot("Tempest Keep", "Bloodwarder Marshal", 1, 6)
+    assert(table.concat(SRT.db.marks.mobs["Tempest Keep"]["Phoenix-Hawk"], ",") == "8,7,6,5", "hawk list")
+    M.StartOver()
+    local h1, h2 = { name = "Phoenix-Hawk" }, { name = "Phoenix-Hawk" }
+    local marshal, h3 = { name = "Bloodwarder Marshal" }, { name = "Phoenix-Hawk" }
+    assert(scrollOver(h1) == 8 and scrollOver(h2) == 7, "hawks: skull, cross")
+    -- Scrolling again over a marked hawk: locked, it keeps its skull.
+    assert(scrollOver(h1) == 8, "a marked mob got a new icon")
+    -- The marshal wants square; the next hawk skips square (taken) and gets moon.
+    assert(scrollOver(marshal) == 6, "marshal: square")
+    assert(scrollOver(h3) == 5, "third hawk should skip the taken square: " .. tostring(h3.icon))
+    -- A player (no list) gets the general order.
+    local player = { name = "Kogosh", player = true }
+    assert(scrollOver(player) == 8, "player: first icon of the order")
+    -- After a fight everything starts over.
+    fire("PLAYER_REGEN_ENABLED")
+    local h4 = { name = "Phoenix-Hawk" }
+    assert(scrollOver(h4) == 8, "not reset after the fight")
+    -- In a fight the general order is used (the lists need out-of-combat reading).
+    fire("PLAYER_REGEN_DISABLED")
+    assert(btn._attr["srt-fixed"] == 0, "not back to the general order in combat")
+    -- Lock off: a marked mob gets the next icon again.
+    SRT.db.marks.lock = false
+    M.StartOver()
+    local h5 = { name = "Phoenix-Hawk", icon = 3 }
+    assert(scrollOver(h5) == 8, "lock off: should re-mark")
+    SRT.db.marks.lock = true
+    -- Page and removal.
+    SlashCmdList.SLAUGHTERRAIDTOOLS("")
+    click("Marks")
+    M.SetSlot("Tempest Keep", "Phoenix-Hawk", 4, nil)
+    assert(#SRT.db.marks.mobs["Tempest Keep"]["Phoenix-Hawk"] == 3, "slot removal")
+    M.RemoveMob("Tempest Keep", "Phoenix-Hawk")
+    M.RemoveMob("Tempest Keep", "Bloodwarder Marshal")
+    assert(SRT.db.marks.mobs["Tempest Keep"] == nil, "empty zone kept")
+    mouseover = nil
+    instance[1], instance[2], instance[3] = false, "none", "Kalimdor"
 end)
 step("launcher button: shown, clicks, hide and show", function()
     assert(SRT.Launcher.IsShown(), "launcher not shown after login")

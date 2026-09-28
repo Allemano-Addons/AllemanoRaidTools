@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.0
+- Mob lists for marking (During > Marks), like the TBC marking addons: per zone, a list of
+  icons per mob name. Target a mob and "Add target", then pick its icons (click a slot). Before
+  the pull, Ctrl + mouse wheel over a mob gives it the next free icon of its list; an icon is
+  used once per pack (a Marshal that wants square takes it, the next hawk skips it). "Lock
+  marks": a mob that already has an icon keeps it. Everything starts over after each fight
+  (or Start over). In a fight the general order is used (lists need out-of-combat reading).
+
 ## 0.12.0
 - Mouseover marking (During > Marks): hold Ctrl, point at a unit and scroll the mouse wheel one
   notch to give it the next icon of the list (skull, cross, square...). Works in combat and on
