@@ -2,7 +2,7 @@
 ## Title: Allemano Raid Tools
 ## Notes: Raid tools for WoW Forever: notes, invites, timers, markers, summons and raid checks. Part of Allemano Addons.
 ## Author: Allemano
-## Version: 0.15.1
+## Version: 0.16.0
 ## SavedVariables: AllemanoRaidToolsDB
 ## IconTexture: Interface\AddOns\AllemanoRaidTools\Media\wow\icon
 

@@ -114,7 +114,9 @@ local function build()
     frame.bg = W.Fill(frame, "window", 1)
     frame.bg:SetAllPoints()
     frame.lines = {}
-    for _, side in pairs(W.Border(frame, "line")) do frame.lines[#frame.lines + 1] = side end
+    local border = W.Border(frame, "line")
+    W.Panel(frame, frame.bg, border)
+    frame.lines[#frame.lines + 1] = border -- has SetAlpha, like the lines
 
     -- Title bar: drag to move (unless locked), lock and close.
     local bar = CreateFrame("Frame", nil, frame)

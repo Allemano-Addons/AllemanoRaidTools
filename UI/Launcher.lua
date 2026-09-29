@@ -25,6 +25,7 @@ local function build()
     button.bg = W.Fill(button, "window", 0.9)
     button.bg:SetAllPoints()
     button.border = W.Border(button, "line")
+    W.Panel(button, button.bg, button.border, Theme.radius.control)
     button.icon = button:CreateTexture(nil, "ARTWORK")
     button.icon:SetPoint("TOPLEFT", 4, -4)
     button.icon:SetPoint("BOTTOMRIGHT", -4, 4)
@@ -42,12 +43,12 @@ local function build()
         if which == "RightButton" then ART.NoteWindow.Toggle() else ART.Main.Toggle() end
     end)
     button:SetScript("OnEnter", function(self)
-        for _, side in pairs(self.border) do side:SetColorTexture(Theme:Accent()) end
+        self.border:SetColor(Theme:Accent())
         W.ShowTooltip(self, { "Allemano Raid Tools", "Left-click: open / close", "Right-click: note window",
             db().locked and "/art button hides it" or "Drag to move, /art button hides it" })
     end)
     button:SetScript("OnLeave", function(self)
-        for _, side in pairs(self.border) do side:SetColorTexture(Theme:Color("line")) end
+        self.border:SetColor(Theme:Color("line"))
         W.HideTooltip()
     end)
 end

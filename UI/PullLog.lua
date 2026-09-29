@@ -2,7 +2,7 @@
 -- time, time in combat) and every pull with its time, combat time and result.
 local _, ART = ...
 
-local W = ART.Widgets
+local Theme, W = ART.Theme, ART.Widgets
 local Main, PullLog = ART.Main, ART.PullLog
 
 local PAD, ROW_H = 26, 20
@@ -51,6 +51,7 @@ local function makeTable(parent, columns)
         r:SetHeight(ROW_H)
         r.bg = W.Fill(r, "field", 1)
         r.bg:SetAllPoints()
+        W.Round(r.bg, Theme.radius.small)
         r.cells = {}
         local cx = 0
         for k, c in ipairs(columns) do

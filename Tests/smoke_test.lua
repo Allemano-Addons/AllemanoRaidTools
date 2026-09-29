@@ -39,7 +39,16 @@ local function mock(kind)
         if k == "GetAttribute" then return function(self, key) return self._attr and self._attr[key] end end
         if k == "WrapScript" then return function(self, target, script, pre) self._wrapped = { target = target, script = script, pre = pre } end end
         if k == "GetName" then return function(self) return self._name end end
-        if k == "CreateTexture" or k == "CreateFontString" or k == "CreateLine" then return function() return mock(k) end end
+        if k == "CreateTexture" or k == "CreateFontString" or k == "CreateLine" then
+            return function(self) local m = mock(k); m._parent = self; return m end
+        end
+        -- Geometry and layers used by W.Round / W.RoundBorder.
+        if k == "GetParent" then return function(self) return self._parent or UIParent end end
+        if k == "GetNumPoints" then return function() return 0 end end
+        if k == "GetSize" then return function() return 0, 0 end end
+        if k == "GetDrawLayer" then return function() return "ARTWORK", 0 end end
+        if k == "GetAlpha" then return function(self) return self._alpha or 1 end end
+        if k == "SetTexture" then return function() return true end end
         if GETTERS[k] ~= nil then local v = GETTERS[k]; return function() return v end end
         return function() end
     end })
@@ -161,6 +170,7 @@ strjoin = function(sep, ...) return table.concat({ ... }, sep) end
 tostringall = function(...) local t = { ... } for i = 1, select("#", ...) do t[i] = tostring(t[i]) end return unpack(t, 1, select("#", ...)) end
 strtrim = function(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
 strlower, strupper, tinsert, tremove, sort, floor, ceil, min, max, format = string.lower, string.upper, table.insert, table.remove, table.sort, math.floor, math.ceil, math.min, math.max, string.format
+abs = math.abs
 wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
 date, time = os.date, os.time
 CopyTable = function(t) local c = {} for k, v in pairs(t) do c[k] = type(v) == "table" and CopyTable(v) or v end return c end
@@ -465,10 +475,10 @@ end)
 step("appearance: swatch, class color, font, sizes", function()
     click("Appearance")
     local sw
-    for f, s in pairs(scripts) do if s.OnClick and f.hex == "C8332E" then sw = f end end
+    for f, s in pairs(scripts) do if s.OnClick and f.hex == "3FD0E0" then sw = f end end
     scripts[sw].OnClick(sw)
-    assert(ART.db.settings.accent == "C8332E", "swatch did not set the accent")
-    assert(select(1, ART.Theme:Accent()) > 0.7, "accent not applied")
+    assert(ART.db.settings.accent == "3FD0E0", "swatch did not set the accent")
+    assert(select(2, ART.Theme:Accent()) > 0.7, "accent not applied")
     ART:SetSetting("useClassColor", true)
     local r, g = ART.Theme:Accent()
     assert(r == 1 and g == 0.49, "class color not used")

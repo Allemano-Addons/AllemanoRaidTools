@@ -1,5 +1,5 @@
--- Theme: colors, sizes and fonts. Same palette as Hush and AltBoard; font, text size and
--- accent come from the settings (Appearance page).
+-- Theme: colors, sizes and fonts. The Allemano palette (same as Hush and AltBoard); font,
+-- text size and accent come from the settings (Appearance page).
 local _, ART = ...
 
 local Theme = {}
@@ -11,14 +11,14 @@ end
 Theme.Hex = hex
 
 Theme.colors = {
-    window    = { hex("111418") },
-    sidebar   = { hex("0D1013") },
-    field     = { hex("15191E") },
-    selected  = { hex("1A1F26") },
-    line      = { hex("22272E") },
-    text      = { hex("E6E8EB") },
-    textDim   = { hex("9AA3AD") },
-    textFaint = { hex("7C858F") },
+    window    = { hex("121418") },
+    sidebar   = { hex("0E1013") },
+    field     = { hex("181B20") },
+    selected  = { hex("1F232A") },
+    line      = { hex("262A31") },
+    text      = { hex("ECEDEF") },
+    textDim   = { hex("9098A1") },
+    textFaint = { hex("6E757E") },
     good      = { hex("3FC77F") },
     warn      = { hex("E8A33D") },
     bad       = { hex("E0564F") },
@@ -30,10 +30,10 @@ Theme.size = {
 }
 
 Theme.TEXT_SIZES = { S = 11, M = 12, L = 14 }
-Theme.DEFAULT_ACCENT = "3FC7EB"
+Theme.DEFAULT_ACCENT = "E5484D" -- ART red, the color of its logo
 Theme.CLASS_ORDER = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
 -- Extra accent choices besides the default and the class colors.
-Theme.EXTRA_ACCENTS = { { "C8332E", "Allemano red" }, { "3FC77F", "Green" }, { "E8A33D", "Amber" }, { "E6E8EB", "White" } }
+Theme.EXTRA_ACCENTS = { { "3FD0E0", "Cyan" }, { "3FC77F", "Green" }, { "E8A33D", "Amber" }, { "E6E8EB", "White" } }
 
 local function settings() return ART.db and ART.db.settings or {} end
 

@@ -2,14 +2,14 @@
 local addonName, ART = ...
 
 ART.name = addonName
-ART.SCHEMA = 1
+ART.SCHEMA = 2
 -- The ART mark (Media/wow/mark.tga, white and red on transparent) shown in its own colors;
 -- Media/wow/icon.tga (the mark on a dark tile) is the addon list icon (TOC).
 ART.MARK = "Interface\\AddOns\\" .. addonName .. "\\Media\\wow\\mark"
 
 function ART:Print(...)
     local msg = strjoin(" ", tostringall(...))
-    DEFAULT_CHAT_FRAME:AddMessage("|cffc8332eART|r " .. msg)
+    DEFAULT_CHAT_FRAME:AddMessage("|cffe5484dART|r " .. msg)
 end
 
 -- ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ end)
 
 local DEFAULT_SETTINGS = {
     debugComm = false,     -- print every addon message sent and received
-    accent = "3FC7EB",
+    accent = "E5484D",       -- ART red
     useClassColor = false,
     font = "Friz Quadrata",
     textSize = "M",        -- S / M / L
@@ -138,6 +138,12 @@ local function initDB()
     local db = AllemanoRaidToolsDB
     db.schema = db.schema or ART.SCHEMA
     db.settings = db.settings or {}
+    -- 2: every Allemano addon has its own color; the old default cyan becomes ART red.
+    if db.schema < 2 then
+        local a = db.settings.accent
+        if a == nil or strupper(a) == "3FC7EB" then db.settings.accent = "E5484D" end
+        db.schema = 2
+    end
     fillDefaults(db.settings, DEFAULT_SETTINGS)
     db.window = db.window or {}   -- main window position, last page
     db.timers = db.timers or {}   -- timer bar position, running timers (survive /reload)

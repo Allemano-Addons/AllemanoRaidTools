@@ -2,7 +2,7 @@
 -- and everything running with its time left and Stop.
 local _, ART = ...
 
-local W = ART.Widgets
+local Theme, W = ART.Theme, ART.Widgets
 local Main, Timers = ART.Main, ART.Timers
 
 local PAD, ROW_H = 26, 30
@@ -80,6 +80,7 @@ Main.RegisterPage("timers", function(page)
         r:SetSize(420, ROW_H)
         r.bg = W.Fill(r, "field", 1)
         r.bg:SetAllPoints()
+        W.Round(r.bg, Theme.radius.small)
         r.label = W.Text(r, 0, "text")
         r.label:SetPoint("LEFT", 10, 0)
         r.time = W.Text(r, 0, "text")

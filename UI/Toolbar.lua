@@ -43,7 +43,7 @@ local function db() return ART.db.toolbar end
 local function paintBorder(b, key)
     local r, g, bl
     if key == "accent" then r, g, bl = Theme:Accent() else r, g, bl = Theme:Color(key) end
-    for _, side in pairs(b.border) do side:SetColorTexture(r, g, bl, 1) end
+    b.border:SetColor(r, g, bl, 1)
 end
 
 local function decorate(b, tooltip)
@@ -51,6 +51,8 @@ local function decorate(b, tooltip)
     b.bg = W.Fill(b, "field", 1)
     b.bg:SetAllPoints()
     b.border = W.Border(b, "line")
+    W.Round(b.bg, Theme.radius.small)
+    W.RoundBorder(b.border, Theme.radius.small)
     b.tooltip = tooltip
     b:HookScript("OnEnter", function(self)
         self.bg:SetColorTexture(Theme:Color("selected"))
@@ -98,7 +100,7 @@ local function build()
     bar:SetMovable(true)
     bar.bg = W.Fill(bar, "window", 0.85)
     bar.bg:SetAllPoints()
-    W.Border(bar, "line")
+    W.Panel(bar, bar.bg, W.Border(bar, "line"), Theme.radius.control)
     local t = db()
     bar:SetPoint(t.point or "TOP", UIParent, t.rel or t.point or "TOP", t.x or 0, t.y or -40)
 

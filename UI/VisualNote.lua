@@ -143,6 +143,8 @@ Main.RegisterPage("visualnote", function(page)
         b.bg = W.Fill(b, "field", 1)
         b.bg:SetAllPoints()
         b.border = W.Border(b, "line")
+        W.Round(b.bg, Theme.radius.small)
+        W.RoundBorder(b.border, Theme.radius.small)
         local t = b:CreateTexture(nil, "ARTWORK")
         t:SetPoint("TOPLEFT", 3, -3)
         t:SetPoint("BOTTOMRIGHT", -3, 3)
@@ -321,7 +323,7 @@ Main.RegisterPage("visualnote", function(page)
             b:SetShown(tool == "i")
             local r, g, bl
             if i == icon then r, g, bl = Theme:Accent() else r, g, bl = Theme:Color("line") end
-            for _, side in pairs(b.border) do side:SetColorTexture(r, g, bl, 1) end
+            b.border:SetColor(r, g, bl, 1)
         end
         saved:Set(d.title ~= "" and d.title or nil)
         if d.title == "" then saved.text:SetText("Saved drawings") end
@@ -367,7 +369,7 @@ local function buildViewer()
     viewer:SetPoint(s.point or "CENTER", UIParent, s.rel or s.point or "CENTER", s.x or 0, s.y or 0)
     viewer.bg = W.Fill(viewer, "window", 0.95)
     viewer.bg:SetAllPoints()
-    W.Border(viewer, "line")
+    W.Panel(viewer, viewer.bg, W.Border(viewer, "line"))
     local bar = CreateFrame("Frame", nil, viewer)
     bar:SetPoint("TOPLEFT")
     bar:SetPoint("TOPRIGHT")
