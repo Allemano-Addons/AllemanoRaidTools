@@ -4,7 +4,7 @@
 ## Author: Allemano
 ## Category: Raid
 ## X-Curse-Project-ID: 1719141
-## Version: 0.16.0
+## Version: 0.16.1
 ## SavedVariables: AllemanoRaidToolsDB
 ## IconTexture: Interface\AddOns\AllemanoRaidTools\Media\wow\icon
 
