@@ -2,6 +2,4 @@
 -- WoW reads this file at start, like the pictures: restart WoW after adding pictures.
 local _, ART = ...
 ART.ImageList = {
-    "test_shot",
-    "wailing_caverns",
 }
