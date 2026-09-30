@@ -104,7 +104,7 @@ UnitClass = function() return "Druid", "DRUID", 11 end
 RAID_CLASS_COLORS = { DRUID = { r = 1, g = 0.49, b = 0.04 }, MAGE = { r = 0.25, g = 0.78, b = 0.92 } }
 LOCALIZED_CLASS_NAMES_MALE = { DRUID = "Druid", MAGE = "Mage" }
 IsInGuild = function() return true end
-GetGuildInfo = function() return "Slakthuset" end
+GetGuildInfo = function() return "Test Guild" end
 local instance = { false, "none", "Kalimdor" }
 IsInInstance = function() return instance[1], instance[2] end
 GetInstanceInfo = function() return instance[3], instance[2], 0 end

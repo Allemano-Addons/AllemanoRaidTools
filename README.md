@@ -2,7 +2,7 @@
 
 Part of **Allemano Addons**.
 
-Raid tools for **WoW Forever**, made for Slakthuset. Everyone in the raid should have it:
+Raid tools for **WoW Forever**, made for raid groups. Everyone in the raid should have it:
 notes, ready check info and timers are shared between ART users.
 
 ## Install

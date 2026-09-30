@@ -10,4 +10,4 @@ Pictures for Visual note backgrounds.
 Copied a .tga or .blp in here yourself? Run Tools\update-images.ps1 so it shows in the menu.
 
 Everyone who should see the picture needs the same file in their Images folder
-(share it on Discord). The visual note itself only sends the name.
+(send them the file yourself). The visual note itself only sends the name.
