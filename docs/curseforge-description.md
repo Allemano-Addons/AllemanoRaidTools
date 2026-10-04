@@ -2,7 +2,7 @@
 
 **Everything a raid leader needs before and during the pull, in one addon.** ART is a raid toolkit for **WoW Forever**: notes everyone can read, drawings on a map, a raid check for flasks and food, invites and rosters, fast mob marking, pull and break timers and a log of every boss pull. Notes, ready check info and timers are **shared between everyone in the raid who runs ART**, so it works best when the whole raid has it.
 
-> **Alpha.** ART is used in real raids but still growing. Tools marked "SOON" in the sidebar are not built yet.
+> **Alpha.** ART is used in real raids but still growing.
 
 ## What it does
 

@@ -25,8 +25,6 @@ notes, ready check info and timers are shared between ART users.
 | **Toolbar** | Raid icons, world markers, ready check, pull and break timers, note. Settings > Toolbar. Plus a small ART button on the screen (drag to move, `/art button` hides it). |
 | **Combat log** | Starts `/combatlog` by itself in raids (Settings > Combat log). |
 
-Tools marked **SOON** in the sidebar are not built yet.
-
 ## Commands
 
 `/art` open or close · `/art note` note window · `/art vn` visual note · `/art check` raid check ·

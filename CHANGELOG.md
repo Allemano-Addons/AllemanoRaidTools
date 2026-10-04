@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.16.2
+- The sidebar lists only the tools that exist. The ones that are not built yet (Reminders, Buffs, Summons, Cooldowns, Battle res, Attendance and Loot) are hidden instead of marked SOON; Loot is dropped from the plan, loot belongs to Arbiter Loot Council.
+
 ## 0.16.1
 - The launcher button's mark is larger, like AltBoard's and the other Allemano addons.
 

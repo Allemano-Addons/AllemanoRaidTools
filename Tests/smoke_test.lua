@@ -454,17 +454,16 @@ step("open window", function()
     assert(f and f._shown, "window not shown")
     assert(ART.db.window.page == "home", "not on home")
 end)
-step("sidebar badges: SOON on tools not built yet", function()
+step("sidebar: tools that are not built yet are left out", function()
     local badges = {}
     for f, s in pairs(scripts) do
         if s.OnClick and f.id and f.text then badges[f.id] = f.badge or "" end
     end
-    assert(badges.summons == "SOON" and badges.loot == "SOON", "unbuilt tools should say SOON")
-    assert(badges.cooldowns == "PROBE", "own badge kept")
+    assert(badges.summons == nil and badges.loot == nil and badges.buffs == nil and badges.attendance == nil, "unbuilt tools should not be listed")
     assert(badges.notes == "" and badges.raidcheck == "" and badges.home == "", "built tools have no badge")
 end)
 step("every page opens", function()
-    for _, section in ipairs(ART.Main.NAV) do
+    for _, section in ipairs(ART.Main.VisibleNav()) do
         for _, item in ipairs(section[2]) do
             click(item[2])
             assert(ART.db.window.page == item[1], "page " .. item[1] .. " not selected")

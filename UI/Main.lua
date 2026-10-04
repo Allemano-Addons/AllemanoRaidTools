@@ -19,7 +19,7 @@ Main.NAV = {
     { "Plan",        { { "notes", "Notes" }, { "visualnote", "Visual note" }, { "reminders", "Reminders" } } },
     { "Before pull", { { "raidcheck", "Raid check" }, { "buffs", "Buff assignments" }, { "invites", "Invites & groups" }, { "summons", "Summons" } } },
     { "During",      { { "marks", "Marks" }, { "timers", "Timers" }, { "cooldowns", "Cooldowns", "PROBE" }, { "bres", "Battle res", "PROBE" } } },
-    { "After",       { { "pulllog", "Pull log" }, { "attendance", "Attendance" }, { "loot", "Loot" } } },
+    { "After",       { { "pulllog", "Pull log" }, { "attendance", "Attendance" } } },
     { "Settings",    { { "appearance", "Appearance" }, { "toolbar", "Toolbar" }, { "combatlog", "Combat log" }, { "advanced", "Advanced" } } },
 }
 
@@ -31,7 +31,6 @@ local COMING = {
     cooldowns = "Raid cooldowns per player. Depends on what WoW Forever lets addons see in combat: run /art probe combat in a dungeon.",
     bres = "Battle res tracking. Depends on the combat probe as well.",
     attendance = "Who was in the raid, benched or late, with an export.",
-    loot = "Loot council support (later).",
 }
 
 local frame, content, header, navButtons
@@ -40,6 +39,20 @@ local current
 
 function Main.RegisterPage(id, build)
     pages[id] = { build = build }
+end
+
+-- The sidebar sections with only the pages that are built. A tool that is not built yet (Reminders, Buffs, Summons,
+-- Cooldowns, Battle res, Attendance) has no entry in the list until its page exists; a section with no pages is left out.
+function Main.VisibleNav()
+    local list = {}
+    for _, section in ipairs(Main.NAV) do
+        local items = {}
+        for _, item in ipairs(section[2]) do
+            if pages[item[1]] then items[#items + 1] = item end
+        end
+        if #items > 0 then list[#list + 1] = { section[1], items } end
+    end
+    return list
 end
 
 function Main.Frame() return frame end
@@ -151,7 +164,7 @@ local function buildSidebar()
     scroll:SetScrollChild(list)
     navButtons = {}
     local y = 6
-    for _, section in ipairs(Main.NAV) do
+    for _, section in ipairs(Main.VisibleNav()) do
         local h = W.Text(list, -2, "textFaint")
         h:SetPoint("TOPLEFT", 18, -(y + 12))
         h:SetText(strupper(section[1]))
@@ -174,8 +187,8 @@ local function buildSidebar()
             b.text = W.Text(b, 0, "textDim")
             b.text:SetPoint("LEFT", 18, 0)
             b.text:SetText(item[2])
-            -- Badge: the item's own (PROBE), or SOON for tools that are not built yet.
-            local badgeText = item[3] or (not pages[item[1]] and "SOON") or nil
+            -- Badge: the item's own (PROBE).
+            local badgeText = item[3]
             if badgeText then
                 local badge = CreateFrame("Frame", nil, b)
                 badge:SetHeight(14)
